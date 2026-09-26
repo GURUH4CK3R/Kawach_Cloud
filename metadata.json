@@ -1,0 +1,6 @@
+{
+  "name": "Kawach Cloud",
+  "description": "Secure Telegram-backed personal cloud storage using your own Saved Messages.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

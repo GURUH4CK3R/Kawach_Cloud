@@ -1,0 +1,50 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Kawach Shield Base -->
+    <path
+        android:pathData="M54,23 L76,32 C76,55 67,69 54,77 C41,69 32,55 32,32 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="23"
+                android:endX="54"
+                android:endY="77"
+                android:type="linear">
+                <item android:color="#2563EB" android:offset="0.0" />
+                <item android:color="#1D4ED8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shield Border Accent -->
+    <path
+        android:pathData="M54,23 L76,32 C76,55 67,69 54,77 C41,69 32,55 32,32 Z"
+        android:strokeWidth="2.5"
+        android:strokeColor="#60A5FA"
+        android:fillColor="#00000000" />
+
+    <!-- Inner Cloud Silhouette -->
+    <path
+        android:pathData="M66,54 C66,50 63,47 59.5,47 C59,47 58.5,47.1 58,47.3 C56.8,43 52.8,40 48,40 C42.5,40 38,44.5 38,50 C38,50.3 38,50.7 38.1,51 C35.7,51.8 34,54.2 34,57 C34,60.9 37.1,64 41,64 L65,64 C68.3,64 71,61.3 71,58 C71,55.9 69.8,54.2 66,54 Z"
+        android:fillColor="#1E293B" />
+
+    <!-- Telegram Paper Plane Accent inside Kawach -->
+    <path
+        android:pathData="M44,52 L64,43 L60,63 L53,57 L50,60 L49.5,55 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Plane Wing Fold / Shadow -->
+    <path
+        android:pathData="M64,43 L53,57 L52.5,52.5 Z"
+        android:fillColor="#93C5FD" />
+
+    <!-- Golden Lock/Security Sparkle -->
+    <path
+        android:pathData="M54,28 L55.5,32 L59.5,33.5 L55.5,35 L54,39 L52.5,35 L48.5,33.5 L52.5,32 Z"
+        android:fillColor="#FF9F43" />
+</vector>
