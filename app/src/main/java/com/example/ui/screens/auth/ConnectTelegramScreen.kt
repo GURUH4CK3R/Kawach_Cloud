@@ -1,6 +1,7 @@
 package com.example.ui.screens.auth
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,13 +29,19 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -522,6 +530,113 @@ fun CountryPickerDialog(
             }
         },
         confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun ApiCredentialsDialog(
+    initialApiId: String,
+    initialApiHash: String,
+    onDismiss: () -> Unit,
+    onSave: (apiId: String, apiHash: String) -> Unit
+) {
+    var apiIdInput by remember { mutableStateOf(initialApiId) }
+    var apiHashInput by remember { mutableStateOf(initialApiHash) }
+    val uriHandler = LocalUriHandler.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Key, contentDescription = null, tint = KawachPrimary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Telegram API Credentials", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "To connect to Telegram Saved Messages without restrictions, enter your free API credentials:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("How to get free credentials (1 minute):", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("1. Open my.telegram.org in your browser", fontSize = 12.sp)
+                        Text("2. Log in with your phone number", fontSize = 12.sp)
+                        Text("3. Tap 'API development tools'", fontSize = 12.sp)
+                        Text("4. Copy App api_id and App api_hash", fontSize = 12.sp)
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                try {
+                                    uriHandler.openUri("https://my.telegram.org")
+                                } catch (e: Exception) {}
+                            },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Open my.telegram.org", fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = apiIdInput,
+                    onValueChange = { apiIdInput = it.filter { char -> char.isDigit() } },
+                    label = { Text("App api_id (Number)") },
+                    placeholder = { Text("e.g. 24967394") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = apiHashInput,
+                    onValueChange = { apiHashInput = it.trim() },
+                    label = { Text("App api_hash (32-char hex)") },
+                    placeholder = { Text("e.g. 8da85b0d5bfe...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(apiIdInput.trim(), apiHashInput.trim())
+                    onDismiss()
+                },
+                enabled = apiIdInput.isNotBlank() && apiHashInput.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = KawachPrimary)
+            ) {
+                Text("Save & Reconnect")
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")

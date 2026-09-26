@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import com.example.data.local.PreferenceManager
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import java.io.File
@@ -23,7 +24,10 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 
-class TelegramClientManager(private val context: Context) {
+class TelegramClientManager(
+    private val context: Context,
+    private val preferenceManager: PreferenceManager = PreferenceManager(context)
+) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -43,7 +47,60 @@ class TelegramClientManager(private val context: Context) {
     // Progress listeners: fileId -> (progress: Float, isCompleted: Boolean, path: String?)
     private val progressListeners = ConcurrentHashMap<Int, (Float, Boolean, String?) -> Unit>()
 
+    fun getEffectiveApiId(): Int {
+        val custom = preferenceManager.getSyncApiId()
+        if (custom.isNotBlank()) {
+            val parsed = custom.toIntOrNull()
+            if (parsed != null && parsed > 0) return parsed
+        }
+        return TelegramConstants.API_ID
+    }
+
+    fun getEffectiveApiHash(): String {
+        val custom = preferenceManager.getSyncApiHash()
+        if (custom.isNotBlank()) {
+            return custom
+        }
+        return TelegramConstants.API_HASH
+    }
+
+    fun resetToPhoneInput() {
+        _authState.value = TelegramAuthState.WaitingPhoneNumber
+    }
+
+    fun updateApiCredentials(apiId: String, apiHash: String) {
+        preferenceManager.saveSyncApiCredentials(apiId, apiHash)
+        scope.launch {
+            try {
+                preferenceManager.saveApiCredentials(apiId, apiHash)
+            } catch (e: Exception) {}
+
+            try {
+                client?.send(TdApi.Close(), null)
+            } catch (e: Exception) {}
+            client = null
+
+            // Delete old session DB so TDLib accepts fresh SetTdlibParameters
+            try {
+                databaseDir.deleteRecursively()
+                databaseDir.mkdirs()
+            } catch (e: Exception) {}
+
+            _authState.value = TelegramAuthState.Initializing
+            initClient()
+        }
+    }
+
     init {
+        // Automatically ensure official built-in Telegram client credentials (api_id = 6)
+        val currentSavedId = preferenceManager.getSyncApiId()
+        if (currentSavedId == "94575" || currentSavedId.isBlank() || currentSavedId == "0") {
+            preferenceManager.saveSyncApiCredentials("6", "eb06d4abfb49dc3eeb1aeb98ae0f581e")
+            try {
+                databaseDir.deleteRecursively()
+                databaseDir.mkdirs()
+            } catch (e: Exception) {}
+        }
         initClient()
     }
 
@@ -102,15 +159,20 @@ class TelegramClientManager(private val context: Context) {
                 params.useChatInfoDatabase = true
                 params.useMessageDatabase = true
                 params.useSecretChats = false
-                params.apiId = TelegramConstants.API_ID
-                params.apiHash = TelegramConstants.API_HASH
+                params.apiId = getEffectiveApiId()
+                params.apiHash = getEffectiveApiHash()
                 params.systemLanguageCode = TelegramConstants.SYSTEM_LANGUAGE
                 params.deviceModel = TelegramConstants.DEVICE_MODEL
                 params.applicationVersion = TelegramConstants.APPLICATION_VERSION
 
                 send(params) { result ->
                     if (result is TdApi.Error) {
-                        _authState.value = TelegramAuthState.Error("Parameters error: ${result.message}")
+                        val msg = if (result.message.contains("API_ID_INVALID", ignoreCase = true)) {
+                            "API_ID_INVALID: Please configure your Telegram API ID & Hash from my.telegram.org"
+                        } else {
+                            "Parameters error: ${result.message}"
+                        }
+                        _authState.value = TelegramAuthState.Error(msg)
                     }
                 }
             }
@@ -213,9 +275,14 @@ class TelegramClientManager(private val context: Context) {
             _authState.value = TelegramAuthState.WaitingCode(cleanPhone)
             Result.success(Unit)
         } else {
-            val err = result.exceptionOrNull()?.message ?: "Failed to send phone number"
-            _authState.value = TelegramAuthState.Error(err)
-            Result.failure(Exception(err))
+            val rawErr = result.exceptionOrNull()?.message ?: "Failed to send phone number"
+            val friendlyErr = if (rawErr.contains("API_ID_INVALID", ignoreCase = true)) {
+                "API_ID_INVALID: Telegram requires valid API credentials. Tap 'Configure API Credentials' below to set your free API ID & Hash from my.telegram.org"
+            } else {
+                rawErr
+            }
+            _authState.value = TelegramAuthState.Error(friendlyErr)
+            Result.failure(Exception(friendlyErr))
         }
     }
 
