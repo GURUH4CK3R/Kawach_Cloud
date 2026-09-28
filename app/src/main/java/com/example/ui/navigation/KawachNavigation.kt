@@ -22,11 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
@@ -59,7 +57,6 @@ import com.example.ui.components.VideoPlayerDialog
 import com.example.ui.screens.auth.ConnectTelegramScreen
 import com.example.ui.screens.files.FilesScreen
 import com.example.ui.screens.home.HomeScreen
-import com.example.ui.screens.saved.SavedMessagesScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.splash.SplashScreen
 import com.example.ui.theme.KawachPrimary
@@ -73,7 +70,6 @@ enum class AppDestination(
 ) {
     HOME("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
     FILES("files", "Files", Icons.Filled.Folder, Icons.Outlined.Folder),
-    SAVED_MESSAGES("saved", "Saved", Icons.Filled.Bookmark, Icons.Outlined.Bookmark),
     SETTINGS("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
 }
 
@@ -229,18 +225,11 @@ fun KawachNavigation(
                                 HomeScreen(
                                     viewModel = viewModel,
                                     onNavigateToFiles = { currentDestination = AppDestination.FILES },
-                                    onNavigateToSavedMessages = { currentDestination = AppDestination.SAVED_MESSAGES },
                                     onConnectTelegram = { rootScreen = RootScreen.CONNECT_TELEGRAM }
                                 )
                             }
                             AppDestination.FILES -> {
                                 FilesScreen(
-                                    viewModel = viewModel,
-                                    onConnectTelegram = { rootScreen = RootScreen.CONNECT_TELEGRAM }
-                                )
-                            }
-                            AppDestination.SAVED_MESSAGES -> {
-                                SavedMessagesScreen(
                                     viewModel = viewModel,
                                     onConnectTelegram = { rootScreen = RootScreen.CONNECT_TELEGRAM }
                                 )
