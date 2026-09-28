@@ -4,8 +4,8 @@
 
 ### *Your personal cloud. Powered by Telegram.*
 
-[![Version](https://img.shields.io/badge/Version-1.0.0--alpha01-orange.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud/releases)
-[![Status](https://img.shields.io/badge/Status-Alpha-blue.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud)
+[![Version](https://img.shields.io/badge/Version-1.0.0-orange.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud/releases)
+[![Status](https://img.shields.io/badge/Status-Release-blue.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud)
 [![Storage](https://img.shields.io/badge/Storage-Unlimited%20Cloud-success.svg?style=for-the-badge&logo=icloud&logoColor=white)](#-features)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg?style=for-the-badge&logo=android&logoColor=white)](https://android.com)
 [![License](https://img.shields.io/badge/License-Apache%202.0-purple.svg?style=for-the-badge)](LICENSE)
@@ -56,8 +56,8 @@
 
 ## 📦 App Information
 
-- **Version**: `1.0.0-alpha01`
-- **Status**: `Alpha`
+- **Version**: `1.0.0`
+- **Status**: `Release`
 - **Storage Quota**: `Unlimited` (via Telegram Saved Messages)
 
 ---
