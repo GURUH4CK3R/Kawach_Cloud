@@ -354,6 +354,74 @@ class TelegramRepository(
         }
     }
 
+    suspend fun getOrFetchPreviewFile(
+        file: CloudFile,
+        onProgress: (Float) -> Unit = {}
+    ): Result<File> = withContext(Dispatchers.IO) {
+        // 1. Check if already locally available via file.localPath
+        if (!file.localPath.isNullOrBlank()) {
+            val local = file.localPath
+            if (!local.startsWith("content://")) {
+                val f = File(local)
+                if (f.exists() && f.length() > 0) {
+                    onProgress(1f)
+                    return@withContext Result.success(f)
+                }
+            } else {
+                try {
+                    val uri = Uri.parse(local)
+                    val previewCacheDir = File(context.cacheDir, "previews").apply { mkdirs() }
+                    val cachedPreview = File(previewCacheDir, "${file.messageId}_${file.name}")
+                    if (cachedPreview.exists() && cachedPreview.length() > 0) {
+                        onProgress(1f)
+                        return@withContext Result.success(cachedPreview)
+                    }
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        cachedPreview.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    if (cachedPreview.exists() && cachedPreview.length() > 0) {
+                        onProgress(1f)
+                        return@withContext Result.success(cachedPreview)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        // 2. Check preview cache dir
+        val previewCacheDir = File(context.cacheDir, "previews").apply { mkdirs() }
+        val cachedPreview = File(previewCacheDir, "${file.messageId}_${file.name}")
+        if (cachedPreview.exists() && cachedPreview.length() > 0) {
+            onProgress(1f)
+            return@withContext Result.success(cachedPreview)
+        }
+
+        // 3. Download from TDLib
+        val result = clientManager.downloadMessageFile(
+            messageId = file.messageId,
+            fallbackFileId = file.telegramFileId,
+            onProgress = onProgress
+        )
+
+        if (result.isFailure) {
+            return@withContext Result.failure(result.exceptionOrNull() ?: Exception("Failed to load file from Telegram"))
+        }
+
+        val downloadedSource = result.getOrThrow()
+        if (!downloadedSource.exists() || downloadedSource.length() <= 0) {
+            return@withContext Result.failure(Exception("Downloaded file is empty or missing"))
+        }
+
+        // Copy or return the downloaded source file
+        try {
+            downloadedSource.copyTo(cachedPreview, overwrite = true)
+            Result.success(cachedPreview)
+        } catch (_: Exception) {
+            Result.success(downloadedSource)
+        }
+    }
+
     suspend fun deleteFile(file: CloudFile): Result<Unit> = withContext(Dispatchers.IO) {
         val uid = currentUserId
         // Real deletion from Telegram Saved Messages
@@ -413,7 +481,7 @@ class TelegramRepository(
         Result.success(Unit)
     }
 
-    private fun getFileInfo(uri: Uri): Triple<String, Long, String> {
+    fun getFileInfo(uri: Uri): Triple<String, Long, String> {
         var name = "file_${System.currentTimeMillis()}"
         var size = 0L
         val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"

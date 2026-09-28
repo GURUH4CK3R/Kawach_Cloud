@@ -47,14 +47,23 @@ data class CloudFile(
             val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
             val mime = mimeType.lowercase(Locale.ROOT)
             return when {
-                mime.startsWith("image/") || ext in listOf("jpg", "jpeg", "png", "webp", "gif", "svg", "bmp") -> FileCategory.IMAGES
-                mime.startsWith("video/") || ext in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp") -> FileCategory.VIDEOS
-                mime.startsWith("audio/") || ext in listOf("mp3", "m4a", "wav", "flac", "ogg", "aac") -> FileCategory.AUDIO
-                mime.startsWith("application/pdf") || ext in listOf("pdf", "doc", "docx", "txt", "rtf", "xls", "xlsx", "ppt", "pptx", "csv", "epub") -> FileCategory.DOCUMENTS
-                mime.contains("zip") || mime.contains("tar") || ext in listOf("zip", "rar", "7z", "tar", "gz") -> FileCategory.ARCHIVES
+                mime.startsWith("image/") || ext in listOf("jpg", "jpeg", "png", "webp", "gif", "svg", "bmp", "heic", "heif", "avif") -> FileCategory.IMAGES
+                mime.startsWith("video/") || ext in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp", "m4v", "ts", "flv") -> FileCategory.VIDEOS
+                mime.startsWith("audio/") || ext in listOf("mp3", "m4a", "wav", "flac", "ogg", "aac", "opus", "wma") -> FileCategory.AUDIO
+                mime == "application/pdf" || ext == "pdf" ||
+                    mime.contains("document") || mime.contains("sheet") || mime.contains("presentation") || mime.startsWith("text/") ||
+                    ext in listOf("pdf", "doc", "docx", "txt", "rtf", "xls", "xlsx", "ppt", "pptx", "csv", "epub", "md", "json", "xml") -> FileCategory.DOCUMENTS
+                mime.contains("zip") || mime.contains("tar") || mime.contains("compressed") ||
+                    ext in listOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz") -> FileCategory.ARCHIVES
                 else -> FileCategory.OTHER
             }
         }
+
+    val isImage: Boolean
+        get() = category == FileCategory.IMAGES
+
+    val isVideo: Boolean
+        get() = category == FileCategory.VIDEOS
 
     val hasLocalFile: Boolean
         get() = isDownloaded || (!localPath.isNullOrBlank() && (localPath.startsWith("content://") || File(localPath).exists()))

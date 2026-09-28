@@ -101,6 +101,8 @@ fun FilesScreen(
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadProgress by viewModel.activeUploadProgress.collectAsState()
     val activeUploadName by viewModel.activeUploadName.collectAsState()
+    val uploadSummary by viewModel.uploadSummary.collectAsState()
+    val uploadQueue by viewModel.uploadQueue.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     // Dialog states
@@ -116,9 +118,11 @@ fun FilesScreen(
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.uploadFile(it) }
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.uploadFiles(uris)
+        }
     }
 
     Scaffold(
@@ -365,6 +369,9 @@ fun FilesScreen(
                     fileName = activeUploadName ?: "Uploading...",
                     progress = uploadProgress,
                     isUploading = isUploading,
+                    summary = uploadSummary,
+                    queueCount = uploadQueue.size,
+                    onCancel = { viewModel.cancelUploadQueue() },
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
             }
@@ -400,7 +407,15 @@ fun FilesScreen(
                         FileCard(
                             file = file,
                             isGrid = true,
-                            onClick = { selectedFileForDetails = file },
+                            onClick = {
+                                if (file.isImage) {
+                                    viewModel.openImagePreview(file)
+                                } else if (file.isVideo) {
+                                    viewModel.openVideoPlayer(file)
+                                } else {
+                                    selectedFileForDetails = file
+                                }
+                            },
                             onDownload = { viewModel.downloadFile(file) },
                             onOpen = { viewModel.openFile(context, file) },
                             onShare = { viewModel.shareFile(context, file) },
@@ -421,7 +436,15 @@ fun FilesScreen(
                         FileCard(
                             file = file,
                             isGrid = false,
-                            onClick = { selectedFileForDetails = file },
+                            onClick = {
+                                if (file.isImage) {
+                                    viewModel.openImagePreview(file)
+                                } else if (file.isVideo) {
+                                    viewModel.openVideoPlayer(file)
+                                } else {
+                                    selectedFileForDetails = file
+                                }
+                            },
                             onDownload = { viewModel.downloadFile(file) },
                             onOpen = { viewModel.openFile(context, file) },
                             onShare = { viewModel.shareFile(context, file) },

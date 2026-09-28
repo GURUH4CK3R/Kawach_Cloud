@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Refresh
@@ -267,6 +268,8 @@ fun UploadProgressCard(
     fileName: String,
     progress: Float,
     isUploading: Boolean,
+    summary: String? = null,
+    queueCount: Int = 1,
     onCancel: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -301,9 +304,10 @@ fun UploadProgressCard(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Uploading to Saved Messages...",
+                                text = summary ?: "Uploading to Saved Messages...",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = KawachPrimary
+                                color = KawachPrimary,
+                                fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = fileName,
@@ -314,12 +318,30 @@ fun UploadProgressCard(
                             )
                         }
                     }
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = KawachPrimary
-                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = KawachPrimary
+                        )
+
+                        if (onCancel != null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            IconButton(
+                                onClick = onCancel,
+                                modifier = Modifier.size(28.dp).testTag("upload_cancel_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cancel upload",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(

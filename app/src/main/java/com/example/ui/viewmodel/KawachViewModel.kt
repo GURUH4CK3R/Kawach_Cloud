@@ -38,6 +38,25 @@ enum class SortOption(val label: String) {
     SIZE_SMALLEST("Size (Smallest)")
 }
 
+enum class UploadItemStatus {
+    QUEUED,
+    UPLOADING,
+    COMPLETED,
+    FAILED,
+    CANCELLED
+}
+
+data class UploadQueueItem(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val uri: Uri,
+    val name: String,
+    val size: Long,
+    val mimeType: String,
+    val status: UploadItemStatus = UploadItemStatus.QUEUED,
+    val progress: Float = 0f,
+    val error: String? = null
+)
+
 class KawachViewModel(
     private val repository: TelegramRepository = KawachApplication.instance.repository,
     private val preferenceManager: PreferenceManager = KawachApplication.instance.preferenceManager
@@ -105,8 +124,31 @@ class KawachViewModel(
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
-    private val uploadMutex = kotlinx.coroutines.sync.Mutex()
-    private var inFlightUri: String? = null
+    // Multi-file upload queue
+    private val _uploadQueue = MutableStateFlow<List<UploadQueueItem>>(emptyList())
+    val uploadQueue: StateFlow<List<UploadQueueItem>> = _uploadQueue.asStateFlow()
+
+    private val _uploadSummary = MutableStateFlow<String?>(null)
+    val uploadSummary: StateFlow<String?> = _uploadSummary.asStateFlow()
+
+    // In-app media preview (Photo Viewer & Video Player)
+    private val _activePreviewFile = MutableStateFlow<CloudFile?>(null)
+    val activePreviewFile: StateFlow<CloudFile?> = _activePreviewFile.asStateFlow()
+
+    private val _previewLocalFile = MutableStateFlow<File?>(null)
+    val previewLocalFile: StateFlow<File?> = _previewLocalFile.asStateFlow()
+
+    private val _previewLoading = MutableStateFlow(false)
+    val previewLoading: StateFlow<Boolean> = _previewLoading.asStateFlow()
+
+    private val _previewProgress = MutableStateFlow(0f)
+    val previewProgress: StateFlow<Float> = _previewProgress.asStateFlow()
+
+    private val _previewError = MutableStateFlow<String?>(null)
+    val previewError: StateFlow<String?> = _previewError.asStateFlow()
+
+    private var uploadJob: kotlinx.coroutines.Job? = null
+    private var previewJob: kotlinx.coroutines.Job? = null
 
     // Snackbars / notifications
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -310,42 +352,157 @@ class KawachViewModel(
     }
 
     fun uploadFile(uri: Uri) {
-        val uriStr = uri.toString()
-        if (_isUploading.value || !uploadMutex.tryLock()) {
-            return
-        }
-        if (inFlightUri == uriStr) {
-            uploadMutex.unlock()
-            return
-        }
-        inFlightUri = uriStr
+        uploadFiles(listOf(uri))
+    }
 
-        viewModelScope.launch {
-            try {
-                _isUploading.value = true
+    fun uploadFiles(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val newItems = uris.map { uri ->
+            val (name, size, mime) = repository.getFileInfo(uri)
+            UploadQueueItem(
+                uri = uri,
+                name = name,
+                size = size,
+                mimeType = mime,
+                status = UploadItemStatus.QUEUED
+            )
+        }
+        _uploadQueue.value = _uploadQueue.value + newItems
+        startUploadQueueProcessing()
+    }
+
+    private fun startUploadQueueProcessing() {
+        if (uploadJob?.isActive == true) return
+        uploadJob = viewModelScope.launch {
+            _isUploading.value = true
+            while (true) {
+                val currentQueue = _uploadQueue.value
+                val nextItem = currentQueue.firstOrNull { it.status == UploadItemStatus.QUEUED } ?: break
+                val totalCount = currentQueue.size
+                val completedOrFailed = currentQueue.count { it.status == UploadItemStatus.COMPLETED || it.status == UploadItemStatus.FAILED }
+                val currentIndex = completedOrFailed + 1
+
+                _uploadSummary.value = if (totalCount > 1) "Uploading $currentIndex of $totalCount" else "Uploading to Saved Messages..."
+                _activeUploadName.value = nextItem.name
                 _activeUploadProgress.value = 0.05f
-                _activeUploadName.value = "Preparing upload..."
+
+                _uploadQueue.value = _uploadQueue.value.map {
+                    if (it.id == nextItem.id) it.copy(status = UploadItemStatus.UPLOADING, progress = 0.05f) else it
+                }
 
                 val folder = if (_selectedFolderId.value == "all") "root" else _selectedFolderId.value
                 val result = repository.uploadFromUri(
-                    uri = uri,
+                    uri = nextItem.uri,
                     folderId = folder,
                     onProgress = { progress ->
                         _activeUploadProgress.value = progress
+                        _uploadQueue.value = _uploadQueue.value.map {
+                            if (it.id == nextItem.id) it.copy(progress = progress) else it
+                        }
                     }
                 )
 
                 if (result.isSuccess) {
                     val file = result.getOrThrow()
+                    _uploadQueue.value = _uploadQueue.value.map {
+                        if (it.id == nextItem.id) it.copy(status = UploadItemStatus.COMPLETED, progress = 1f) else it
+                    }
                     emitMessage("Upload complete: ${file.name}")
                 } else {
-                    emitMessage(result.exceptionOrNull()?.message ?: "Upload failed")
+                    val err = result.exceptionOrNull()?.message ?: "Upload failed"
+                    _uploadQueue.value = _uploadQueue.value.map {
+                        if (it.id == nextItem.id) it.copy(status = UploadItemStatus.FAILED, error = err) else it
+                    }
+                    emitMessage("Upload failed for ${nextItem.name}: $err")
                 }
-            } finally {
-                _isUploading.value = false
-                _activeUploadName.value = null
-                inFlightUri = null
-                uploadMutex.unlock()
+            }
+
+            _isUploading.value = false
+            _activeUploadName.value = null
+            _activeUploadProgress.value = 0f
+            _uploadSummary.value = null
+
+            val finalQueue = _uploadQueue.value
+            val failedCount = finalQueue.count { it.status == UploadItemStatus.FAILED }
+            val completedCount = finalQueue.count { it.status == UploadItemStatus.COMPLETED }
+            if (finalQueue.size > 1) {
+                if (failedCount == 0) {
+                    emitMessage("All $completedCount files uploaded successfully")
+                } else {
+                    emitMessage("Upload queue finished: $completedCount uploaded, $failedCount failed")
+                }
+            }
+        }
+    }
+
+    fun cancelUploadQueue() {
+        uploadJob?.cancel()
+        uploadJob = null
+        _uploadQueue.value = _uploadQueue.value.map {
+            if (it.status == UploadItemStatus.QUEUED || it.status == UploadItemStatus.UPLOADING) {
+                it.copy(status = UploadItemStatus.CANCELLED)
+            } else it
+        }
+        _isUploading.value = false
+        _activeUploadName.value = null
+        _activeUploadProgress.value = 0f
+        _uploadSummary.value = null
+        emitMessage("Upload cancelled")
+    }
+
+    fun retryFailedUploads() {
+        _uploadQueue.value = _uploadQueue.value.map {
+            if (it.status == UploadItemStatus.FAILED || it.status == UploadItemStatus.CANCELLED) {
+                it.copy(status = UploadItemStatus.QUEUED, progress = 0f, error = null)
+            } else it
+        }
+        startUploadQueueProcessing()
+    }
+
+    fun clearCompletedUploads() {
+        _uploadQueue.value = _uploadQueue.value.filter {
+            it.status == UploadItemStatus.UPLOADING || it.status == UploadItemStatus.QUEUED
+        }
+    }
+
+    fun openImagePreview(file: CloudFile) {
+        _activePreviewFile.value = file
+        fetchPreview(file)
+    }
+
+    fun openVideoPlayer(file: CloudFile) {
+        _activePreviewFile.value = file
+        fetchPreview(file)
+    }
+
+    fun closePreview() {
+        previewJob?.cancel()
+        _activePreviewFile.value = null
+        _previewLocalFile.value = null
+        _previewLoading.value = false
+        _previewError.value = null
+    }
+
+    fun retryPreview() {
+        _activePreviewFile.value?.let { fetchPreview(it) }
+    }
+
+    private fun fetchPreview(file: CloudFile) {
+        previewJob?.cancel()
+        _previewLocalFile.value = null
+        _previewError.value = null
+        _previewLoading.value = true
+        _previewProgress.value = 0.05f
+
+        previewJob = viewModelScope.launch {
+            val result = repository.getOrFetchPreviewFile(file, onProgress = { progress ->
+                _previewProgress.value = progress
+            })
+            _previewLoading.value = false
+            if (result.isSuccess) {
+                _previewLocalFile.value = result.getOrThrow()
+            } else {
+                _previewError.value = result.exceptionOrNull()?.message ?: "Failed to load file"
             }
         }
     }
@@ -365,6 +522,14 @@ class KawachViewModel(
     }
 
     fun openFile(context: Context, file: CloudFile) {
+        if (file.isImage) {
+            openImagePreview(file)
+            return
+        }
+        if (file.isVideo) {
+            openVideoPlayer(file)
+            return
+        }
         if (!file.hasLocalFile) {
             downloadFile(file) { uri ->
                 launchViewIntent(context, uri, file.mimeType)

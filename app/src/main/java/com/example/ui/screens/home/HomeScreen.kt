@@ -87,6 +87,8 @@ fun HomeScreen(
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadProgress by viewModel.activeUploadProgress.collectAsState()
     val activeUploadName by viewModel.activeUploadName.collectAsState()
+    val uploadSummary by viewModel.uploadSummary.collectAsState()
+    val uploadQueue by viewModel.uploadQueue.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     // Dialog states
@@ -97,9 +99,11 @@ fun HomeScreen(
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.uploadFile(it) }
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.uploadFiles(uris)
+        }
     }
 
     Scaffold(
@@ -165,7 +169,10 @@ fun HomeScreen(
                     UploadProgressCard(
                         fileName = activeUploadName ?: "Uploading...",
                         progress = uploadProgress,
-                        isUploading = isUploading
+                        isUploading = isUploading,
+                        summary = uploadSummary,
+                        queueCount = uploadQueue.size,
+                        onCancel = { viewModel.cancelUploadQueue() }
                     )
                 }
             }
@@ -309,7 +316,15 @@ fun HomeScreen(
                     FileCard(
                         file = file,
                         isGrid = false,
-                        onClick = { selectedFileForDetails = file },
+                        onClick = {
+                            if (file.isImage) {
+                                viewModel.openImagePreview(file)
+                            } else if (file.isVideo) {
+                                viewModel.openVideoPlayer(file)
+                            } else {
+                                selectedFileForDetails = file
+                            }
+                        },
                         onDownload = { viewModel.downloadFile(file) },
                         onOpen = { viewModel.openFile(context, file) },
                         onShare = { viewModel.shareFile(context, file) },

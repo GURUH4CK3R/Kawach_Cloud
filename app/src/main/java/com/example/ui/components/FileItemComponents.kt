@@ -400,13 +400,16 @@ fun FileDropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss
     ) {
-        if (file.hasLocalFile) {
-            DropdownMenuItem(
-                text = { Text("Open File") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
-                onClick = { onDismiss(); onOpen() }
-            )
-        }
+        DropdownMenuItem(
+            text = { Text(if (file.isImage) "View Photo" else if (file.isVideo) "Play Video" else "Open File") },
+            leadingIcon = {
+                Icon(
+                    imageVector = if (file.isImage) Icons.Default.Image else if (file.isVideo) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.OpenInNew,
+                    contentDescription = null
+                )
+            },
+            onClick = { onDismiss(); onOpen() }
+        )
 
         DropdownMenuItem(
             text = { Text(if (file.hasLocalFile) "Download to Device" else "Download") },
@@ -490,14 +493,17 @@ fun FileDetailsDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (file.hasLocalFile) {
+                    if (file.hasLocalFile || file.isImage || file.isVideo) {
                         Button(
                             onClick = { onDismiss(); onOpen() },
                             colors = ButtonDefaults.buttonColors(containerColor = KawachSuccess),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Open", color = Color.White)
+                            Text(
+                                text = if (file.isImage) "View" else if (file.isVideo) "Play" else "Open",
+                                color = Color.White
+                            )
                         }
                     }
 

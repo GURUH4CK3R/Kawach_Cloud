@@ -50,7 +50,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.example.data.model.TelegramAuthState
+import com.example.ui.components.ImageViewerDialog
+import com.example.ui.components.VideoPlayerDialog
 import com.example.ui.screens.auth.ConnectTelegramScreen
 import com.example.ui.screens.files.FilesScreen
 import com.example.ui.screens.home.HomeScreen
@@ -84,6 +87,13 @@ fun KawachNavigation(
     var currentDestination by remember { mutableStateOf(AppDestination.HOME) }
     val authState by viewModel.authState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    val activePreviewFile by viewModel.activePreviewFile.collectAsState()
+    val previewLocalFile by viewModel.previewLocalFile.collectAsState()
+    val previewLoading by viewModel.previewLoading.collectAsState()
+    val previewProgress by viewModel.previewProgress.collectAsState()
+    val previewError by viewModel.previewError.collectAsState()
 
     // Listen to messages from ViewModel
     LaunchedEffect(Unit) {
@@ -234,6 +244,35 @@ fun KawachNavigation(
                     }
                 }
             }
+        }
+    }
+
+    // In-app media preview (Photo Viewer & Video Player)
+    activePreviewFile?.let { file ->
+        if (file.isImage) {
+            ImageViewerDialog(
+                file = file,
+                localFile = previewLocalFile,
+                isLoading = previewLoading,
+                progress = previewProgress,
+                errorMessage = previewError,
+                onDismiss = { viewModel.closePreview() },
+                onRetry = { viewModel.retryPreview() },
+                onDownload = { viewModel.downloadFile(file) },
+                onShare = { viewModel.shareFile(context, file) }
+            )
+        } else if (file.isVideo) {
+            VideoPlayerDialog(
+                file = file,
+                localFile = previewLocalFile,
+                isLoading = previewLoading,
+                downloadProgress = previewProgress,
+                errorMessage = previewError,
+                onDismiss = { viewModel.closePreview() },
+                onRetry = { viewModel.retryPreview() },
+                onDownload = { viewModel.downloadFile(file) },
+                onShare = { viewModel.shareFile(context, file) }
+            )
         }
     }
 }
