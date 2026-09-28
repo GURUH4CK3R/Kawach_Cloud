@@ -67,25 +67,17 @@
 <div align="center">
 
 ### **LEAD DEVELOPER**
-# **ARAVIND (GURU)**
-*Android Engineer & Open-Source Author*
-
-[![Email](https://img.shields.io/badge/Email-darkwebaccess404%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:darkwebaccess404@gmail.com)
-[![Telegram](https://img.shields.io/badge/Telegram-@DaRkAcCeSs-24A1DE?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/DaRkAcCeSs)
-[![GitHub](https://img.shields.io/badge/GitHub-GURUH4CK3R-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/GURUH4CK3R)
-
-</div>
+## **ARAVIND (GURU)**
+*Android Engineer & Project Architect*
 
 <br/>
 
-| Field | Developer Details |
-| :--- | :--- |
-| 👤 **Lead Developer** | **ARAVIND (GURU)** |
-| 🏷️ **Role** | Android Engineer & Project Architect |
-| 📧 **Official Email** | [`darkwebaccess404@gmail.com`](mailto:darkwebaccess404@gmail.com) |
-| 💬 **Telegram Contact** | [@DaRkAcCeSs](https://t.me/DaRkAcCeSs) |
-| 🐙 **GitHub Profile** | [@GURUH4CK3R](https://github.com/GURUH4CK3R) |
-| 📦 **Project Repository** | [GURUH4CK3R/Kawach_Cloud](https://github.com/GURUH4CK3R/Kawach_Cloud) |
+[![Email](https://img.shields.io/badge/Email-darkwebaccess404%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:darkwebaccess404@gmail.com)
+[![Telegram](https://img.shields.io/badge/Telegram-@DaRkAcCeSs-24A1DE?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/DaRkAcCeSs)
+[![GitHub](https://img.shields.io/badge/GitHub-@GURUH4CK3R-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/GURUH4CK3R)
+[![Repository](https://img.shields.io/badge/Repository-Kawach__Cloud-2ea44f?style=for-the-badge&logo=github&logoColor=white)](https://github.com/GURUH4CK3R/Kawach_Cloud)
+
+</div>
 
 ---
 
