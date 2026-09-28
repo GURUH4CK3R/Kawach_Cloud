@@ -31,5 +31,5 @@ val LightTextPrimary = Color(0xFF0F172A)
 val LightTextSecondary = Color(0xFF64748B)
 
 // Glassmorphism Tint Colors
-val DarkGlassCard = Color(0xCC101D30)
-val LightGlassCard = Color(0xEEFFFFFF)
+val DarkGlassCard = Color(0xFF101D30)
+val LightGlassCard = Color(0xFFFFFFFF)

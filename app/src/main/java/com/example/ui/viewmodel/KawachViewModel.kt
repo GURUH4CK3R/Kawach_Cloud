@@ -384,10 +384,21 @@ class KawachViewModel(
     private fun resolveFileUri(context: Context, file: CloudFile): Uri? {
         val path = file.localPath ?: return null
         return if (path.startsWith("content://")) {
-            Uri.parse(path)
+            val uri = Uri.parse(path)
+            try {
+                val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+                if (pfd != null && pfd.statSize > 0) {
+                    pfd.close()
+                    uri
+                } else {
+                    null
+                }
+            } catch (_: Exception) {
+                null
+            }
         } else {
             val f = File(path)
-            if (f.exists()) {
+            if (f.exists() && f.length() > 0) {
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
             } else {
                 null

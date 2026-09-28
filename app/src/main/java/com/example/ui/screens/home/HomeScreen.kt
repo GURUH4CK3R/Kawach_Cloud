@@ -218,18 +218,18 @@ fun HomeScreen(
                                     text = totalFormatted,
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = KawachPrimary
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = KawachPrimary.copy(alpha = 0.15f)
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                             ) {
                                 Text(
                                     text = "${recentFiles.size} files",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = KawachPrimaryDark,
+                                    color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                 )
                             }
@@ -274,7 +274,7 @@ fun HomeScreen(
                         Text(
                             text = "View All",
                             style = MaterialTheme.typography.bodySmall,
-                            color = KawachPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier
                                 .clickable { onNavigateToFiles() }

@@ -96,4 +96,36 @@ class ExampleUnitTest {
     assertEquals("photo (1).jpg", duplicate1)
     assertEquals("photo (2).jpg", duplicate2)
   }
+
+  @Test
+  fun folderMetadataPattern_matchesCorrectly() {
+    val text = "[KawachCloud:Folder] id:work_docs | name:Work Documents"
+    val idMatch = Regex("id:([a-zA-Z0-9_-]+)").find(text)?.groupValues?.getOrNull(1)
+    val nameMatch = Regex("name:(.+)").find(text)?.groupValues?.getOrNull(1)?.trim()
+    assertEquals("work_docs", idMatch)
+    assertEquals("Work Documents", nameMatch)
+  }
+
+  @Test
+  fun videoAndAudioFiles_correctCategoryAssigned() {
+    val video = CloudFile(
+      messageId = 10L,
+      telegramFileId = 20,
+      name = "vacation.mp4",
+      size = 1024 * 1024 * 15,
+      mimeType = "video/mp4",
+      uploadDate = 1700000000L
+    )
+    assertEquals(FileCategory.VIDEOS, video.category)
+
+    val audio = CloudFile(
+      messageId = 11L,
+      telegramFileId = 21,
+      name = "song.mp3",
+      size = 1024 * 1024 * 3,
+      mimeType = "audio/mpeg",
+      uploadDate = 1700000000L
+    )
+    assertEquals(FileCategory.AUDIO, audio.category)
+  }
 }

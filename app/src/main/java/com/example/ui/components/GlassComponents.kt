@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,11 +69,10 @@ fun GlassCard(
     shape: RoundedCornerShape = RoundedCornerShape(20.dp),
     borderColor: Color = MaterialTheme.colorScheme.outline,
     backgroundColor: Color? = null,
-    elevation: Dp = 4.dp,
+    elevation: Dp = 2.dp,
     content: @Composable () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val bg = backgroundColor ?: if (isDark) DarkGlassCard else LightGlassCard
+    val bg = backgroundColor ?: MaterialTheme.colorScheme.surface
 
     Card(
         modifier = modifier,
@@ -105,12 +103,12 @@ fun GlassButton(
             .testTag(tag),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = KawachPrimaryDark,
-            contentColor = Color.White,
-            disabledContainerColor = KawachPrimaryDark.copy(alpha = 0.5f),
-            disabledContentColor = Color.White.copy(alpha = 0.7f)
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            disabledContentColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -119,7 +117,7 @@ fun GlassButton(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(10.dp))

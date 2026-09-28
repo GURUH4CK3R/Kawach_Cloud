@@ -557,6 +557,108 @@ class TelegramClientManager(
         Result.success(cloudFile)
     }
 
+    suspend fun downloadMessageFile(
+        messageId: Long,
+        fallbackFileId: Int = 0,
+        onProgress: (Float) -> Unit
+    ): Result<File> = withContext(Dispatchers.IO) {
+        val chatId = getSavedChatId()
+        if (chatId == 0L) {
+            return@withContext Result.failure(IllegalStateException("Saved Messages chat is not available. Please ensure you are connected."))
+        }
+
+        // 1. Resolve fresh live file from live Telegram message
+        var liveFile: TdApi.File? = null
+        val msgResult = sendAsync(TdApi.GetMessage(chatId, messageId))
+        if (msgResult.isSuccess) {
+            val msg = msgResult.getOrThrow()
+            when (val content = msg.content) {
+                is TdApi.MessageDocument -> liveFile = content.document?.document
+                is TdApi.MessagePhoto -> liveFile = content.photo?.sizes?.lastOrNull()?.photo
+                is TdApi.MessageVideo -> liveFile = content.video?.video
+                is TdApi.MessageAudio -> liveFile = content.audio?.audio
+                is TdApi.MessageVoiceNote -> liveFile = content.voiceNote?.voice
+                is TdApi.MessageAnimation -> liveFile = content.animation?.animation
+            }
+        }
+
+        // If message resolution didn't yield file, try fallbackFileId
+        if (liveFile == null && fallbackFileId > 0) {
+            val getFileResult = sendAsync(TdApi.GetFile(fallbackFileId))
+            if (getFileResult.isSuccess) {
+                liveFile = getFileResult.getOrThrow()
+            }
+        }
+
+        if (liveFile == null) {
+            return@withContext Result.failure(Exception("Could not locate file in Telegram message $messageId"))
+        }
+
+        // 2. Check if already downloaded on disk
+        val local = liveFile.local
+        if (local?.isDownloadingCompleted == true && !local.path.isNullOrBlank()) {
+            val src = File(local.path)
+            if (src.exists() && src.length() > 0) {
+                onProgress(1f)
+                return@withContext Result.success(src)
+            }
+        }
+
+        val targetFileId = liveFile.id
+
+        // 3. Initiate download and monitor UpdateFile
+        val downloaded = suspendCancellableCoroutine<Result<File>> { continuation ->
+            continuation.invokeOnCancellation {
+                progressListeners.remove(targetFileId)
+                client?.send(TdApi.CancelDownloadFile(targetFileId, false)) {}
+            }
+
+            progressListeners[targetFileId] = { progress, isCompleted, downloadedPath ->
+                onProgress(progress)
+                if (isCompleted && continuation.isActive) {
+                    progressListeners.remove(targetFileId)
+                    scope.launch(Dispatchers.IO) {
+                        var resolvedPath = downloadedPath
+                        if (resolvedPath.isNullOrBlank()) {
+                            val fresh = sendAsync(TdApi.GetFile(targetFileId)).getOrNull()
+                            resolvedPath = fresh?.local?.path
+                        }
+                        if (!resolvedPath.isNullOrBlank()) {
+                            val src = File(resolvedPath)
+                            if (src.exists() && src.length() > 0) {
+                                if (continuation.isActive) continuation.resume(Result.success(src))
+                                return@launch
+                            }
+                        }
+                        if (continuation.isActive) {
+                            continuation.resume(Result.failure(Exception("Downloaded source file not found or is empty")))
+                        }
+                    }
+                }
+            }
+
+            client?.send(TdApi.DownloadFile(targetFileId, 1, 0, 0, false)) { result ->
+                if (!continuation.isActive) return@send
+                if (result is TdApi.Error) {
+                    progressListeners.remove(targetFileId)
+                    continuation.resume(Result.failure(Exception("Download error: ${result.message}")))
+                } else if (result is TdApi.File) {
+                    val l = result.local
+                    if (l?.isDownloadingCompleted == true && !l.path.isNullOrBlank()) {
+                        val src = File(l.path)
+                        if (src.exists() && src.length() > 0) {
+                            progressListeners.remove(targetFileId)
+                            onProgress(1f)
+                            continuation.resume(Result.success(src))
+                        }
+                    }
+                }
+            }
+        }
+
+        downloaded
+    }
+
     suspend fun downloadFile(
         telegramFileId: Int,
         onProgress: (Float) -> Unit
@@ -573,15 +675,22 @@ class TelegramClientManager(
                 onProgress(progress)
                 if (isCompleted && continuation.isActive) {
                     progressListeners.remove(telegramFileId)
-                    if (downloadedPath != null) {
-                        val src = File(downloadedPath)
-                        if (src.exists() && src.length() > 0) {
-                            continuation.resume(Result.success(src))
-                        } else {
+                    scope.launch(Dispatchers.IO) {
+                        var resolvedPath = downloadedPath
+                        if (resolvedPath.isNullOrBlank()) {
+                            val fresh = sendAsync(TdApi.GetFile(telegramFileId)).getOrNull()
+                            resolvedPath = fresh?.local?.path
+                        }
+                        if (!resolvedPath.isNullOrBlank()) {
+                            val src = File(resolvedPath)
+                            if (src.exists() && src.length() > 0) {
+                                if (continuation.isActive) continuation.resume(Result.success(src))
+                                return@launch
+                            }
+                        }
+                        if (continuation.isActive) {
                             continuation.resume(Result.failure(Exception("Downloaded source file not found or is empty")))
                         }
-                    } else {
-                        continuation.resume(Result.failure(Exception("Downloaded path is null")))
                     }
                 }
             }
@@ -608,22 +717,6 @@ class TelegramClientManager(
         downloadedFile
     }
 
-    suspend fun downloadFile(
-        telegramFileId: Int,
-        targetFile: File,
-        onProgress: (Float) -> Unit
-    ): Result<File> = withContext(Dispatchers.IO) {
-        val result = downloadFile(telegramFileId, onProgress)
-        if (result.isSuccess) {
-            val src = result.getOrThrow()
-            targetFile.parentFile?.mkdirs()
-            src.copyTo(targetFile, overwrite = true)
-            Result.success(targetFile)
-        } else {
-            Result.failure(result.exceptionOrNull() ?: Exception("Download failed"))
-        }
-    }
-
     suspend fun deleteFile(messageId: Long): Result<Unit> = withContext(Dispatchers.IO) {
         val chatId = getSavedChatId()
         if (chatId == 0L) {
@@ -639,74 +732,208 @@ class TelegramClientManager(
         }
     }
 
-    suspend fun fetchKawachFilesFromSavedMessages(): Result<List<CloudFile>> = withContext(Dispatchers.IO) {
+    suspend fun saveFolderMetadataToTelegram(folderId: String, folderName: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val chatId = getSavedChatId()
+        if (chatId == 0L) return@withContext Result.failure(IllegalStateException("Chat ID not available"))
+
+        val text = "[KawachCloud:Folder] id:$folderId | name:$folderName"
+        val input = TdApi.InputMessageText()
+        input.text = TdApi.FormattedText(text, null)
+        input.clearDraft = true
+        val sendMsg = TdApi.SendMessage()
+        sendMsg.chatId = chatId
+        sendMsg.inputMessageContent = input
+
+        val result = sendAsync(sendMsg)
+        if (result.isSuccess) Result.success(Unit)
+        else Result.failure(result.exceptionOrNull() ?: Exception("Failed to save folder to Telegram"))
+    }
+
+    suspend fun syncSavedMessages(
+        onBatch: suspend (List<CloudFile>, List<Pair<String, String>>) -> Unit
+    ): Result<Int> = withContext(Dispatchers.IO) {
         val chatId = getSavedChatId()
         if (chatId == 0L) {
             return@withContext Result.failure(IllegalStateException("Chat ID not available"))
         }
 
-        val files = mutableListOf<CloudFile>()
         var fromMessageId = 0L
+        var totalSynced = 0
+        var pages = 0
+        val maxPages = 20 // 20 pages * 100 = up to 2000 messages
 
-        // Fetch up to 100 messages from chat history
-        val getHistory = TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)
-        val result = sendAsync(getHistory)
-
-        if (result.isSuccess) {
-            val messages = result.getOrThrow().messages
-            for (msg in messages) {
-                val parsed = parseKawachMessage(msg)
-                if (parsed != null) {
-                    files.add(parsed)
-                }
+        while (pages < maxPages) {
+            val getHistory = TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)
+            val result = sendAsync(getHistory)
+            if (result.isFailure) {
+                if (totalSynced > 0) break
+                return@withContext Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch messages"))
             }
-            Result.success(files)
+
+            val messages = result.getOrThrow().messages
+            if (messages.isEmpty()) {
+                break
+            }
+
+            val batchFiles = mutableListOf<CloudFile>()
+            val batchFolders = mutableListOf<Pair<String, String>>()
+
+            for (msg in messages) {
+                val parsed = parseSavedMessage(msg)
+                parsed.file?.let { batchFiles.add(it) }
+                parsed.folder?.let { batchFolders.add(it) }
+            }
+
+            if (batchFiles.isNotEmpty() || batchFolders.isNotEmpty()) {
+                onBatch(batchFiles, batchFolders)
+                totalSynced += batchFiles.size
+            }
+
+            fromMessageId = messages.last().id
+            pages++
+
+            if (messages.size < 100) {
+                break // reached beginning of chat history
+            }
+        }
+
+        Result.success(totalSynced)
+    }
+
+    suspend fun fetchKawachFilesFromSavedMessages(): Result<List<CloudFile>> = withContext(Dispatchers.IO) {
+        val allFiles = mutableListOf<CloudFile>()
+        val result = syncSavedMessages { batchFiles, _ ->
+            allFiles.addAll(batchFiles)
+        }
+        if (result.isSuccess) {
+            Result.success(allFiles)
         } else {
-            Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch messages"))
+            Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch files"))
         }
     }
 
-    private fun parseKawachMessage(message: TdApi.Message): CloudFile? {
+    data class ParsedMessageResult(
+        val file: CloudFile? = null,
+        val folder: Pair<String, String>? = null
+    )
+
+    fun parseSavedMessage(message: TdApi.Message): ParsedMessageResult {
         val content = message.content
 
-        val (captionText, doc) = when (content) {
-            is TdApi.MessageDocument -> {
-                content.caption?.text to content.document
+        // 1. Check for folder metadata messages
+        if (content is TdApi.MessageText) {
+            val text = content.text.text
+            if (text.startsWith("[KawachCloud:Folder]")) {
+                val idMatch = Regex("id:([a-zA-Z0-9_-]+)").find(text)?.groupValues?.getOrNull(1)
+                val nameMatch = Regex("name:(.+)").find(text)?.groupValues?.getOrNull(1)?.trim()
+                if (!idMatch.isNullOrBlank() && !nameMatch.isNullOrBlank()) {
+                    return ParsedMessageResult(folder = idMatch to nameMatch)
+                }
             }
-            else -> return null
+            return ParsedMessageResult()
         }
 
-        // Must contain Kawach Cloud signature to be treated as a Kawach Cloud file
-        if (captionText == null || (!captionText.contains(TelegramConstants.KAWACH_SIGNATURE) && !captionText.contains(TelegramConstants.KAWACH_TAG))) {
-            return null
+        // 2. Extract media and caption
+        var captionText: String? = null
+        var tdFile: TdApi.File? = null
+        var fileName: String = ""
+        var mimeType: String = ""
+        var thumbFile: TdApi.File? = null
+
+        when (content) {
+            is TdApi.MessageDocument -> {
+                captionText = content.caption?.text
+                tdFile = content.document?.document
+                fileName = content.document?.fileName?.ifBlank { "document_${message.id}" } ?: "document_${message.id}"
+                mimeType = content.document?.mimeType?.ifBlank { "application/octet-stream" } ?: "application/octet-stream"
+                thumbFile = content.document?.thumbnail?.file
+            }
+            is TdApi.MessagePhoto -> {
+                captionText = content.caption?.text
+                val sizes = content.photo?.sizes
+                tdFile = sizes?.lastOrNull()?.photo
+                thumbFile = sizes?.firstOrNull()?.photo
+                fileName = "photo_${message.date}.jpg"
+                mimeType = "image/jpeg"
+            }
+            is TdApi.MessageVideo -> {
+                captionText = content.caption?.text
+                tdFile = content.video?.video
+                fileName = content.video?.fileName?.ifBlank { "video_${message.date}.mp4" } ?: "video_${message.date}.mp4"
+                mimeType = content.video?.mimeType?.ifBlank { "video/mp4" } ?: "video/mp4"
+                thumbFile = content.video?.thumbnail?.file
+            }
+            is TdApi.MessageAudio -> {
+                captionText = content.caption?.text
+                tdFile = content.audio?.audio
+                val performer = content.audio?.performer ?: ""
+                val title = content.audio?.title ?: ""
+                fileName = content.audio?.fileName?.ifBlank {
+                    "$performer - $title".trim(' ', '-').ifBlank { "audio_${message.date}.mp3" }
+                } ?: "audio_${message.date}.mp3"
+                mimeType = content.audio?.mimeType?.ifBlank { "audio/mpeg" } ?: "audio/mpeg"
+                thumbFile = content.audio?.albumCoverThumbnail?.file
+            }
+            is TdApi.MessageVoiceNote -> {
+                captionText = content.caption?.text
+                tdFile = content.voiceNote?.voice
+                fileName = "voice_${message.date}.ogg"
+                mimeType = content.voiceNote?.mimeType?.ifBlank { "audio/ogg" } ?: "audio/ogg"
+            }
+            is TdApi.MessageAnimation -> {
+                captionText = content.caption?.text
+                tdFile = content.animation?.animation
+                fileName = content.animation?.fileName?.ifBlank { "animation_${message.date}.mp4" } ?: "animation_${message.date}.mp4"
+                mimeType = content.animation?.mimeType?.ifBlank { "video/mp4" } ?: "video/mp4"
+                thumbFile = content.animation?.thumbnail?.file
+            }
+            else -> return ParsedMessageResult()
         }
 
-        // Extract folderId from caption e.g., "folder:Documents" or fallback "root"
+        if (tdFile == null) return ParsedMessageResult()
+
+        // Trigger thumbnail download in background if available and not yet downloaded
+        if (thumbFile != null && thumbFile.local?.isDownloadingCompleted == false) {
+            client?.send(TdApi.DownloadFile(thumbFile.id, 32, 0, 0, false)) {}
+        }
+
         val folderRegex = Regex("folder:([a-zA-Z0-9_-]+)")
-        val folderMatch = folderRegex.find(captionText)
-        val folderId = folderMatch?.groupValues?.getOrNull(1) ?: "root"
+        val folderMatch = if (captionText != null) folderRegex.find(captionText) else null
+        val explicitFolder = folderMatch?.groupValues?.getOrNull(1)
 
-        val fileName = doc.fileName?.ifBlank { "file_${message.id}" } ?: "file_${message.id}"
-        val mimeType = doc.mimeType?.ifBlank { "application/octet-stream" } ?: "application/octet-stream"
-        val size = doc.document?.size ?: 0L
-        val localPath = doc.document?.local?.path
-        val isDownloaded = doc.document?.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank() && File(localPath).exists()
-        val thumbPath = doc.thumbnail?.file?.local?.path?.takeIf { !it.isNullOrBlank() && File(it).exists() }
+        val folderId = when {
+            explicitFolder != null -> explicitFolder
+            content is TdApi.MessagePhoto || content is TdApi.MessageVideo || content is TdApi.MessageAnimation -> "media"
+            content is TdApi.MessageAudio || content is TdApi.MessageVoiceNote -> "media"
+            content is TdApi.MessageDocument -> {
+                val ext = fileName.substringAfterLast('.', "").lowercase()
+                if (ext in listOf("zip", "rar", "7z", "tar", "gz")) "archives"
+                else if (ext in listOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx")) "docs"
+                else "saved_messages"
+            }
+            else -> "saved_messages"
+        }
 
-        return CloudFile(
+        val localPath = tdFile.local?.path
+        val isDownloaded = tdFile.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank() && File(localPath).exists()
+        val thumbPath = thumbFile?.local?.path?.takeIf { !it.isNullOrBlank() && File(it).exists() }
+
+        val cloudFile = CloudFile(
             messageId = message.id,
-            telegramFileId = doc.document?.id ?: 0,
-            remoteFileId = doc.document?.remote?.id ?: "",
+            telegramFileId = tdFile.id,
+            remoteFileId = tdFile.remote?.id ?: "",
             name = fileName,
-            size = size,
+            size = tdFile.size,
             mimeType = mimeType,
             uploadDate = message.date.toLong(),
             folderId = folderId,
             localPath = localPath,
             isDownloaded = isDownloaded,
-            kawachTag = captionText,
+            kawachTag = captionText ?: "",
             thumbnailPath = thumbPath
         )
+
+        return ParsedMessageResult(file = cloudFile)
     }
 
     private fun send(function: TdApi.Function<*>, handler: (TdApi.Object) -> Unit) {

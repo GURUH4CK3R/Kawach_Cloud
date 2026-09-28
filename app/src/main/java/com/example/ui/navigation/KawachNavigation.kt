@@ -138,9 +138,11 @@ fun KawachNavigation(
                                 },
                                 label = { Text(destination.title) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = KawachPrimary,
-                                    selectedTextColor = KawachPrimary,
-                                    indicatorColor = KawachPrimary.copy(alpha = 0.15f)
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
                                 modifier = Modifier.testTag("nav_item_${destination.route}")
                             )

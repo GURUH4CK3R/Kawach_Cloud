@@ -250,7 +250,7 @@ fun FilesScreen(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add Folder",
                             modifier = Modifier.size(16.dp),
-                            tint = KawachPrimary
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
@@ -506,8 +506,8 @@ private fun FolderChip(
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) KawachPrimary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .clickable { onClick() }
             .testTag("folder_chip_${name.take(6)}")
@@ -520,7 +520,7 @@ private fun FolderChip(
                 imageVector = Icons.Default.Folder,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = if (isSelected) Color.White else KawachPrimary
+                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(

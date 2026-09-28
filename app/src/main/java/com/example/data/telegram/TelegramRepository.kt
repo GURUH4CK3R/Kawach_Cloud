@@ -15,6 +15,7 @@ import com.example.util.DownloadStorageManager
 import com.example.util.SavedDownloadResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -41,19 +44,23 @@ class TelegramRepository(
     // In-memory active file transfers for real-time UI progress (messageId -> CloudFile with progress)
     private val activeTransfers = MutableStateFlow<Map<Long, CloudFile>>(emptyMap())
 
+    private val _activeUserId = MutableStateFlow<Long>(0L)
     private var currentUserId: Long = 0L
 
     init {
         scope.launch {
             authState.collect { state ->
                 if (state is TelegramAuthState.Authenticated) {
-                    currentUserId = state.user.id
+                    val uid = state.user.id
+                    currentUserId = uid
+                    _activeUserId.value = uid
                     // Ensure Default Folders exist
-                    ensureDefaultFolders(state.user.id)
+                    ensureDefaultFolders(uid)
                     // Auto-sync files from Saved Messages
                     syncFiles()
                 } else if (state is TelegramAuthState.WaitingPhoneNumber) {
                     currentUserId = 0L
+                    _activeUserId.value = 0L
                     activeTransfers.value = emptyMap()
                 }
             }
@@ -62,41 +69,65 @@ class TelegramRepository(
 
     private suspend fun ensureDefaultFolders(userId: Long) {
         val existing = folderDao.getFoldersForUser(userId).firstOrNull() ?: emptyList()
-        if (existing.isEmpty()) {
-            folderDao.insertFolder(FolderEntity(id = "root", userId = userId, name = "All Files"))
-            folderDao.insertFolder(FolderEntity(id = "docs", userId = userId, name = "Documents"))
-            folderDao.insertFolder(FolderEntity(id = "media", userId = userId, name = "Media"))
-            folderDao.insertFolder(FolderEntity(id = "archives", userId = userId, name = "Archives"))
+        val defaultList = listOf(
+            FolderEntity(id = "root", userId = userId, name = "All Files"),
+            FolderEntity(id = "saved_messages", userId = userId, name = "Saved Messages"),
+            FolderEntity(id = "docs", userId = userId, name = "Documents"),
+            FolderEntity(id = "media", userId = userId, name = "Media"),
+            FolderEntity(id = "archives", userId = userId, name = "Archives")
+        )
+        val existingIds = existing.map { it.id }.toSet()
+        val toInsert = defaultList.filter { it.id !in existingIds }
+        if (toInsert.isNotEmpty()) {
+            folderDao.insertFolders(toInsert)
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getFilesFlow(): Flow<List<CloudFile>> {
-        return combine(
-            fileDao.getFilesForUser(currentUserId),
-            activeTransfers
-        ) { dbFiles, transfers ->
-            val mapped = dbFiles.map { it.toCloudFile() }.toMutableList()
-            // Merge transfers with DB files
-            transfers.values.forEach { transfer ->
-                val index = mapped.indexOfFirst { it.messageId == transfer.messageId }
-                if (index >= 0) {
-                    mapped[index] = transfer
-                } else {
-                    mapped.add(0, transfer)
+        return _activeUserId.flatMapLatest { userId ->
+            if (userId == 0L) {
+                flowOf(emptyList())
+            } else {
+                combine(
+                    fileDao.getFilesForUser(userId),
+                    activeTransfers
+                ) { dbFiles, transfers ->
+                    val mapped = dbFiles.map { it.toCloudFile() }.toMutableList()
+                    // Merge active transfers with DB files
+                    transfers.values.forEach { transfer ->
+                        val index = mapped.indexOfFirst { it.messageId == transfer.messageId }
+                        if (index >= 0) {
+                            mapped[index] = transfer
+                        } else {
+                            mapped.add(0, transfer)
+                        }
+                    }
+                    mapped
                 }
             }
-            mapped
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getFoldersFlow(): Flow<List<CloudFolder>> {
-        return combine(
-            folderDao.getFoldersForUser(currentUserId),
-            fileDao.getFilesForUser(currentUserId)
-        ) { folders, files ->
-            folders.map { folder ->
-                val count = files.count { it.folderId == folder.id }
-                folder.toCloudFolder(count)
+        return _activeUserId.flatMapLatest { userId ->
+            if (userId == 0L) {
+                flowOf(emptyList())
+            } else {
+                combine(
+                    folderDao.getFoldersForUser(userId),
+                    fileDao.getFilesForUser(userId)
+                ) { folders, files ->
+                    folders.map { folder ->
+                        val count = if (folder.id == "root") {
+                            files.size
+                        } else {
+                            files.count { it.folderId == folder.id }
+                        }
+                        folder.toCloudFolder(count)
+                    }
+                }
             }
         }
     }
@@ -114,25 +145,29 @@ class TelegramRepository(
     }
 
     suspend fun logout(): Result<Unit> {
-        if (currentUserId != 0L) {
-            fileDao.deleteFilesForUser(currentUserId)
-            folderDao.deleteFoldersForUser(currentUserId)
-        }
+        _activeUserId.value = 0L
+        currentUserId = 0L
+        activeTransfers.value = emptyMap()
         return clientManager.logout()
     }
 
     suspend fun syncFiles(): Result<Int> = withContext(Dispatchers.IO) {
-        val result = clientManager.fetchKawachFilesFromSavedMessages()
-        if (result.isSuccess) {
-            val files = result.getOrThrow()
-            if (currentUserId != 0L) {
-                val entities = files.map { FileEntity.fromCloudFile(it, currentUserId) }
-                fileDao.insertFiles(entities)
+        val uid = currentUserId
+        if (uid == 0L) return@withContext Result.failure(IllegalStateException("User not authenticated"))
+
+        val result = clientManager.syncSavedMessages { batchFiles, batchFolders ->
+            if (batchFolders.isNotEmpty()) {
+                val folderEntities = batchFolders.map { (id, name) ->
+                    FolderEntity(id = id, userId = uid, name = name)
+                }
+                folderDao.insertFolders(folderEntities)
             }
-            Result.success(files.size)
-        } else {
-            Result.failure(result.exceptionOrNull() ?: Exception("Failed to sync files"))
+            if (batchFiles.isNotEmpty()) {
+                val fileEntities = batchFiles.map { FileEntity.fromCloudFile(it, uid) }
+                fileDao.insertFiles(fileEntities)
+            }
         }
+        result
     }
 
     suspend fun uploadFromUri(
@@ -198,8 +233,8 @@ class TelegramRepository(
         file: CloudFile,
         onProgress: (Float) -> Unit = {}
     ): Result<SavedDownloadResult> = withContext(Dispatchers.IO) {
-        // If file is already locally available and verified in Downloads/cache, return directly
-        if (file.hasLocalFile && !file.localPath.isNullOrBlank()) {
+        // If file is already locally available and verified in public Downloads, return directly
+        if (!file.localPath.isNullOrBlank()) {
             val local = file.localPath
             if (local.startsWith("content://")) {
                 val uri = Uri.parse(local)
@@ -218,7 +253,7 @@ class TelegramRepository(
                         )
                     }
                 } catch (_: Exception) {}
-            } else {
+            } else if (local.contains("/Download/")) {
                 val f = File(local)
                 if (f.exists() && f.length() > 0) {
                     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
@@ -239,9 +274,10 @@ class TelegramRepository(
         val downloadingFile = file.copy(isDownloading = true, downloadProgress = 0.05f)
         activeTransfers.value = activeTransfers.value + (file.messageId to downloadingFile)
 
-        // 1. Download completed source file from TDLib
-        val result = clientManager.downloadFile(
-            telegramFileId = file.telegramFileId,
+        // 1. Download completed source file from TDLib using message resolution
+        val result = clientManager.downloadMessageFile(
+            messageId = file.messageId,
+            fallbackFileId = file.telegramFileId,
             onProgress = { progress ->
                 onProgress(progress)
                 val updated = downloadingFile.copy(
@@ -301,9 +337,13 @@ class TelegramRepository(
     }
 
     suspend fun createFolder(name: String): Result<Unit> = withContext(Dispatchers.IO) {
-        if (currentUserId == 0L) return@withContext Result.failure(IllegalStateException("User not authenticated"))
+        val uid = currentUserId
+        if (uid == 0L) return@withContext Result.failure(IllegalStateException("User not authenticated"))
         val id = UUID.randomUUID().toString().take(8)
-        folderDao.insertFolder(FolderEntity(id = id, userId = currentUserId, name = name.trim()))
+        val cleanName = name.trim()
+        folderDao.insertFolder(FolderEntity(id = id, userId = uid, name = cleanName))
+        // Persist to Telegram Saved Messages metadata so it survives re-login on any device
+        clientManager.saveFolderMetadataToTelegram(id, cleanName)
         Result.success(Unit)
     }
 

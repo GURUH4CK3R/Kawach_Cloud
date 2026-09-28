@@ -7,12 +7,13 @@ import com.example.data.model.CloudFolder
 
 @Entity(
     tableName = "cloud_folders",
+    primaryKeys = ["id", "userId"],
     indices = [
         Index(value = ["userId"])
     ]
 )
 data class FolderEntity(
-    @PrimaryKey val id: String,
+    val id: String,
     val userId: Long,
     val name: String,
     val createdAt: Long = System.currentTimeMillis() / 1000L

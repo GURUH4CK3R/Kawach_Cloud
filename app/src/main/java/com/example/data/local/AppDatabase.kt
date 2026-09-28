@@ -11,7 +11,7 @@ import com.example.data.local.entity.FolderEntity
 
 @Database(
     entities = [FileEntity::class, FolderEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

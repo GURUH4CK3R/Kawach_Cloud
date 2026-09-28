@@ -7,6 +7,7 @@ import com.example.data.model.CloudFile
 
 @Entity(
     tableName = "cloud_files",
+    primaryKeys = ["messageId", "userId"],
     indices = [
         Index(value = ["userId"]),
         Index(value = ["userId", "folderId"]),
@@ -14,7 +15,7 @@ import com.example.data.model.CloudFile
     ]
 )
 data class FileEntity(
-    @PrimaryKey val messageId: Long,
+    val messageId: Long,
     val userId: Long,
     val telegramFileId: Int,
     val remoteFileId: String,
