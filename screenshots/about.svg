@@ -42,7 +42,7 @@
     <text x="50" y="60" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="700">Developer Information</text>
     
     <!-- Developer Name -->
-    <text x="50" y="120" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="800">Aravind(guru)</text>
+    <text x="50" y="120" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="800">ARAVIND (GURU)</text>
     <text x="50" y="160" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="500">Android Engineer &amp; Open Source Author</text>
 
     <!-- Contact Row Badges -->

@@ -59,13 +59,18 @@
 
 ---
 
-## 👨‍💻 Developer
+## 🧑‍💻 Developer & Contact
 
-**Aravind(guru)**
+### Lead Developer: **ARAVIND (GURU)**
 
-- 📧 [darkwebaccess404@gmail.com](mailto:darkwebaccess404@gmail.com)
-- 💬 [Telegram](https://t.me/DaRkAcCeSs)
-- 🐙 [GitHub](https://github.com/GURUH4CK3R)
+- 📧 **Email**:  
+  [`darkwebaccess404@gmail.com`](mailto:darkwebaccess404@gmail.com)
+
+- 💬 **Telegram**: [https://t.me/DaRkAcCeSs](https://t.me/DaRkAcCeSs)
+
+- 🐙 **GitHub**: [@GURUH4CK3R](https://github.com/GURUH4CK3R)
+
+- 📦 **Repository**: [https://github.com/GURUH4CK3R/Kawach_Cloud](https://github.com/GURUH4CK3R/Kawach_Cloud)
 
 ---
 
