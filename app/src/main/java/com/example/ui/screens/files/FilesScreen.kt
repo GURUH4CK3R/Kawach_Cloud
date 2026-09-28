@@ -1,6 +1,7 @@
 package com.example.ui.screens.files
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -30,13 +31,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -104,6 +109,12 @@ fun FilesScreen(
     val uploadSummary by viewModel.uploadSummary.collectAsState()
     val uploadQueue by viewModel.uploadQueue.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val selectedFileIds by viewModel.selectedFileIds.collectAsState()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.clearFileSelection()
+    }
 
     // Dialog states
     var selectedFileForDetails by remember { mutableStateOf<CloudFile?>(null) }
@@ -127,45 +138,123 @@ fun FilesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Files",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp
-                    )
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.refreshFiles() },
-                        enabled = !isRefreshing && authState is TelegramAuthState.Authenticated,
-                        modifier = Modifier.testTag("files_refresh_button")
-                    ) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = KawachPrimary
-                            )
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Sync files")
+            if (isSelectionMode) {
+                TopAppBar(
+                    navigationIcon = {
+                        IconButton(
+                            onClick = { viewModel.clearFileSelection() },
+                            modifier = Modifier.testTag("exit_selection_mode_button")
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Exit selection")
                         }
-                    }
-
-                    IconButton(
-                        onClick = { viewModel.toggleGridView() },
-                        modifier = Modifier.testTag("toggle_view_mode_button")
-                    ) {
-                        Icon(
-                            imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                            contentDescription = if (isGridView) "List view" else "Grid view"
+                    },
+                    title = {
+                        Text(
+                            text = "${selectedFileIds.size} selected",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
                         )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                if (selectedFileIds.size == files.size && files.isNotEmpty()) {
+                                    viewModel.clearFileSelection()
+                                } else {
+                                    viewModel.selectAllFiles(files)
+                                }
+                            },
+                            modifier = Modifier.testTag("select_all_files_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SelectAll,
+                                contentDescription = if (selectedFileIds.size == files.size) "Deselect All" else "Select All"
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selectedFileIds.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .clickable(enabled = selectedFileIds.isNotEmpty()) {
+                                    viewModel.downloadSelectedFiles()
+                                }
+                                .testTag("download_selected_files_button")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FileDownload,
+                                    contentDescription = "Download selected",
+                                    tint = if (selectedFileIds.isNotEmpty()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Download (${selectedFileIds.size})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (selectedFileIds.isNotEmpty()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                    )
                 )
-            )
+            } else {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Files",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        )
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { viewModel.toggleSelectionMode() },
+                            enabled = files.isNotEmpty(),
+                            modifier = Modifier.testTag("files_multiselect_button")
+                        ) {
+                            Icon(Icons.Default.Checklist, contentDescription = "Select files")
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.refreshFiles() },
+                            enabled = !isRefreshing && authState is TelegramAuthState.Authenticated,
+                            modifier = Modifier.testTag("files_refresh_button")
+                        ) {
+                            if (isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = KawachPrimary
+                                )
+                            } else {
+                                Icon(Icons.Default.Refresh, contentDescription = "Sync files")
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.toggleGridView() },
+                            modifier = Modifier.testTag("toggle_view_mode_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
+                                contentDescription = if (isGridView) "List view" else "Grid view"
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+            }
         },
         floatingActionButton = {
             if (authState is TelegramAuthState.Authenticated) {
@@ -404,11 +493,17 @@ fun FilesScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(files, key = { it.messageId }) { file ->
+                        val isSelected = selectedFileIds.contains(file.messageId)
                         FileCard(
                             file = file,
                             isGrid = true,
+                            isSelected = isSelected,
+                            isSelectionMode = isSelectionMode,
+                            onToggleSelect = { viewModel.toggleFileSelection(file.messageId) },
                             onClick = {
-                                if (file.isImage) {
+                                if (isSelectionMode) {
+                                    viewModel.toggleFileSelection(file.messageId)
+                                } else if (file.isImage) {
                                     viewModel.openImagePreview(file)
                                 } else if (file.isVideo) {
                                     viewModel.openVideoPlayer(file)
@@ -416,12 +511,16 @@ fun FilesScreen(
                                     selectedFileForDetails = file
                                 }
                             },
+                            onLongClick = {
+                                viewModel.toggleFileSelection(file.messageId)
+                            },
                             onDownload = { viewModel.downloadFile(file) },
                             onOpen = { viewModel.openFile(context, file) },
                             onShare = { viewModel.shareFile(context, file) },
                             onRename = { selectedFileForRename = file },
                             onMove = { selectedFileForMove = file },
-                            onDelete = { selectedFileForDelete = file }
+                            onDelete = { selectedFileForDelete = file },
+                            onShowDetails = { selectedFileForDetails = file }
                         )
                     }
                 }
@@ -433,11 +532,17 @@ fun FilesScreen(
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(files, key = { it.messageId }) { file ->
+                        val isSelected = selectedFileIds.contains(file.messageId)
                         FileCard(
                             file = file,
                             isGrid = false,
+                            isSelected = isSelected,
+                            isSelectionMode = isSelectionMode,
+                            onToggleSelect = { viewModel.toggleFileSelection(file.messageId) },
                             onClick = {
-                                if (file.isImage) {
+                                if (isSelectionMode) {
+                                    viewModel.toggleFileSelection(file.messageId)
+                                } else if (file.isImage) {
                                     viewModel.openImagePreview(file)
                                 } else if (file.isVideo) {
                                     viewModel.openVideoPlayer(file)
@@ -445,12 +550,16 @@ fun FilesScreen(
                                     selectedFileForDetails = file
                                 }
                             },
+                            onLongClick = {
+                                viewModel.toggleFileSelection(file.messageId)
+                            },
                             onDownload = { viewModel.downloadFile(file) },
                             onOpen = { viewModel.openFile(context, file) },
                             onShare = { viewModel.shareFile(context, file) },
                             onRename = { selectedFileForRename = file },
                             onMove = { selectedFileForMove = file },
                             onDelete = { selectedFileForDelete = file },
+                            onShowDetails = { selectedFileForDetails = file },
                             modifier = Modifier.padding(bottom = 10.dp)
                         )
                     }

@@ -138,6 +138,13 @@ class KawachViewModel(
     private val _previewLocalFile = MutableStateFlow<File?>(null)
     val previewLocalFile: StateFlow<File?> = _previewLocalFile.asStateFlow()
 
+    // Multi-file selection & batch download
+    private val _selectedFileIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedFileIds: StateFlow<Set<Long>> = _selectedFileIds.asStateFlow()
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
     private val _previewLoading = MutableStateFlow(false)
     val previewLoading: StateFlow<Boolean> = _previewLoading.asStateFlow()
 
@@ -331,6 +338,7 @@ class KawachViewModel(
         viewModelScope.launch {
             closePreview()
             cancelUploadQueue()
+            clearFileSelection()
             _phoneNumberInput.value = ""
             _otpInput.value = ""
             _passwordInput.value = ""
@@ -523,6 +531,85 @@ class KawachViewModel(
                 onReady?.invoke(downloaded.uri)
             } else {
                 emitMessage(result.exceptionOrNull()?.message ?: "Download failed")
+            }
+        }
+    }
+
+    fun toggleSelectionMode() {
+        val newMode = !_isSelectionMode.value
+        _isSelectionMode.value = newMode
+        if (!newMode) {
+            _selectedFileIds.value = emptySet()
+        }
+    }
+
+    fun setSelectionMode(enabled: Boolean) {
+        _isSelectionMode.value = enabled
+        if (!enabled) {
+            _selectedFileIds.value = emptySet()
+        }
+    }
+
+    fun toggleFileSelection(messageId: Long) {
+        val current = _selectedFileIds.value
+        if (current.contains(messageId)) {
+            val updated = current - messageId
+            _selectedFileIds.value = updated
+            if (updated.isEmpty()) {
+                _isSelectionMode.value = false
+            }
+        } else {
+            _selectedFileIds.value = current + messageId
+            _isSelectionMode.value = true
+        }
+    }
+
+    fun selectAllFiles(files: List<CloudFile>) {
+        _selectedFileIds.value = files.map { it.messageId }.toSet()
+        _isSelectionMode.value = true
+    }
+
+    fun clearFileSelection() {
+        _selectedFileIds.value = emptySet()
+        _isSelectionMode.value = false
+    }
+
+    fun downloadSelectedFiles() {
+        val selectedIds = _selectedFileIds.value
+        if (selectedIds.isEmpty()) {
+            emitMessage("No files selected to download")
+            return
+        }
+
+        val allCurrentFiles = rawFiles.value
+        val filesToDownload = allCurrentFiles.filter { it.messageId in selectedIds }
+        if (filesToDownload.isEmpty()) {
+            emitMessage("Selected files are no longer available")
+            clearFileSelection()
+            return
+        }
+
+        val count = filesToDownload.size
+        clearFileSelection()
+
+        viewModelScope.launch {
+            emitMessage("Downloading $count selected files...")
+            var successCount = 0
+            var failCount = 0
+
+            for (file in filesToDownload) {
+                val result = repository.downloadFile(file)
+                if (result.isSuccess) {
+                    successCount++
+                } else {
+                    failCount++
+                }
+            }
+
+            if (failCount == 0) {
+                emitMessage("Downloaded all $successCount files to Downloads")
+            } else {
+                emitMessage("Downloaded $successCount files ($failCount failed)")
             }
         }
     }

@@ -1,7 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +32,10 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.AlertDialog
@@ -55,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -150,49 +156,157 @@ fun FileThumbnail(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FileCard(
     file: CloudFile,
     isGrid: Boolean = false,
+    isSelected: Boolean = false,
+    isSelectionMode: Boolean = false,
+    onToggleSelect: (() -> Unit)? = null,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     onDownload: () -> Unit,
     onOpen: () -> Unit,
     onShare: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
+    onShowDetails: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     if (isGrid) {
-        GlassCard(
-            modifier = modifier
-                .fillMaxWidth()
-                .clickable { onClick() }
-                .testTag("file_card_grid_${file.messageId}"),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        val isMedia = file.isImage || file.isVideo
+
+        if (isMedia) {
+            // Big photo thumbnail card for images and videos
+            GlassCard(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .combinedClickable(
+                        onClick = {
+                            if (isSelectionMode) {
+                                onToggleSelect?.invoke()
+                            } else {
+                                onClick()
+                            }
+                        },
+                        onLongClick = {
+                            if (onLongClick != null) {
+                                onLongClick()
+                            } else {
+                                onToggleSelect?.invoke()
+                            }
+                        }
+                    )
+                    .testTag("file_card_grid_${file.messageId}"),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(165.dp)
                 ) {
-                    FileThumbnail(
-                        file = file,
-                        size = 40.dp
+                    val thumbModel = file.thumbnailPath ?: if (file.hasLocalFile) file.localPath else null
+
+                    if (!thumbModel.isNullOrBlank()) {
+                        AsyncImage(
+                            model = thumbModel,
+                            contentDescription = file.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        val catColor = getCategoryColor(file.category)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(catColor.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = getCategoryIcon(file.category),
+                                contentDescription = null,
+                                tint = catColor,
+                                modifier = Modifier.size(54.dp)
+                            )
+                        }
+                    }
+
+                    // Bottom gradient overlay for clear contrast
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(55.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                                )
+                            )
                     )
 
-                    Box {
+                    // Video Play Icon Badge
+                    if (file.isVideo) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .align(Alignment.Center),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                    }
+
+                    // Selection Checkmark (Top-Left)
+                    if (isSelectionMode) {
+                        Box(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .align(Alignment.TopStart)
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) KawachPrimary else Color.Black.copy(alpha = 0.6f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = if (isSelected) "Selected" else "Not selected",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Options Menu Button (Top-Right)
+                    Box(
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .align(Alignment.TopEnd)
+                    ) {
                         IconButton(
                             onClick = { showMenu = true },
-                            modifier = Modifier.size(28.dp).testTag("file_menu_button_${file.messageId}")
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .testTag("file_menu_button_${file.messageId}")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
                                 contentDescription = "Options",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
 
@@ -205,57 +319,178 @@ fun FileCard(
                             onShare = onShare,
                             onRename = onRename,
                             onMove = onMove,
-                            onDelete = onDelete
+                            onDelete = onDelete,
+                            onShowDetails = onShowDetails
                         )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    // Bottom info bar (Size pill on left, Download status on right)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Black.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = file.formattedSize,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
 
-                Text(
-                    text = file.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = file.formattedSize,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (file.isDownloading) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (file.isDownloading) {
                             CircularProgressIndicator(
                                 progress = { file.downloadProgress },
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color = KawachPrimary
+                                color = Color.White
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${(file.downloadProgress * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = KawachPrimary,
-                                fontWeight = FontWeight.Bold
+                        } else if (file.hasLocalFile) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Downloaded",
+                                tint = KawachSuccess,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                    } else if (file.hasLocalFile) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Downloaded",
-                            tint = KawachSuccess,
-                            modifier = Modifier.size(16.dp)
+                    }
+                }
+            }
+        } else {
+            // Document, Archive, Audio grid card
+            GlassCard(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .combinedClickable(
+                        onClick = {
+                            if (isSelectionMode) {
+                                onToggleSelect?.invoke()
+                            } else {
+                                onClick()
+                            }
+                        },
+                        onLongClick = {
+                            if (onLongClick != null) {
+                                onLongClick()
+                            } else {
+                                onToggleSelect?.invoke()
+                            }
+                        }
+                    )
+                    .testTag("file_card_grid_${file.messageId}"),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isSelectionMode) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) KawachPrimary else MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                    contentDescription = if (isSelected) "Selected" else "Not selected",
+                                    tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        } else {
+                            FileThumbnail(
+                                file = file,
+                                size = 42.dp
+                            )
+                        }
+
+                        Box {
+                            IconButton(
+                                onClick = { showMenu = true },
+                                modifier = Modifier.size(28.dp).testTag("file_menu_button_${file.messageId}")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Options",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            FileDropdownMenu(
+                                expanded = showMenu,
+                                file = file,
+                                onDismiss = { showMenu = false },
+                                onDownload = onDownload,
+                                onOpen = onOpen,
+                                onShare = onShare,
+                                onRename = onRename,
+                                onMove = onMove,
+                                onDelete = onDelete,
+                                onShowDetails = onShowDetails
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = file.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = file.formattedSize,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        if (file.isDownloading) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    progress = { file.downloadProgress },
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = KawachPrimary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${(file.downloadProgress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = KawachPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else if (file.hasLocalFile) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Downloaded",
+                                tint = KawachSuccess,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -264,7 +499,23 @@ fun FileCard(
         GlassCard(
             modifier = modifier
                 .fillMaxWidth()
-                .clickable { onClick() }
+                .clip(RoundedCornerShape(16.dp))
+                .combinedClickable(
+                    onClick = {
+                        if (isSelectionMode) {
+                            onToggleSelect?.invoke()
+                        } else {
+                            onClick()
+                        }
+                    },
+                    onLongClick = {
+                        if (onLongClick != null) {
+                            onLongClick()
+                        } else {
+                            onToggleSelect?.invoke()
+                        }
+                    }
+                )
                 .testTag("file_card_list_${file.messageId}"),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -274,6 +525,24 @@ fun FileCard(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (isSelectionMode) {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 10.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) KawachPrimary else MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = if (isSelected) "Selected" else "Not selected",
+                            tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
                 FileThumbnail(
                     file = file,
                     size = 46.dp
@@ -376,7 +645,8 @@ fun FileCard(
                         onShare = onShare,
                         onRename = onRename,
                         onMove = onMove,
-                        onDelete = onDelete
+                        onDelete = onDelete,
+                        onShowDetails = onShowDetails
                     )
                 }
             }
@@ -394,7 +664,8 @@ fun FileDropdownMenu(
     onShare: () -> Unit,
     onRename: () -> Unit,
     onMove: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onShowDetails: (() -> Unit)? = null
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -410,6 +681,14 @@ fun FileDropdownMenu(
             },
             onClick = { onDismiss(); onOpen() }
         )
+
+        if (onShowDetails != null) {
+            DropdownMenuItem(
+                text = { Text("Details & Info") },
+                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                onClick = { onDismiss(); onShowDetails() }
+            )
+        }
 
         DropdownMenuItem(
             text = { Text(if (file.hasLocalFile) "Download to Device" else "Download") },

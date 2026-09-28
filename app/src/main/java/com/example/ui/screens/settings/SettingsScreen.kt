@@ -19,9 +19,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
@@ -338,8 +340,16 @@ fun SettingsScreen(
 
                     AboutInfoRow(
                         icon = Icons.Default.Person,
-                        label = "Developer",
-                        value = "Aravind(guru)"
+                        label = "Lead Developer",
+                        value = "ARAVIND (GURU)"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    AboutInfoRow(
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        label = "Telegram",
+                        value = "@DaRkAcCeSs"
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -348,6 +358,14 @@ fun SettingsScreen(
                         icon = Icons.Default.Email,
                         label = "Email",
                         value = "darkwebaccess404@gmail.com"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    AboutInfoRow(
+                        icon = Icons.Default.Cloud,
+                        label = "Storage",
+                        value = "Unlimited (Telegram Saved Messages)"
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
