@@ -67,6 +67,8 @@ import com.example.ui.components.GlassButton
 import com.example.ui.components.GlassCard
 import com.example.ui.components.MoveFileDialog
 import com.example.ui.components.RenameDialog
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import com.example.ui.components.UploadProgressCard
 import com.example.ui.theme.KawachAccent
 import com.example.ui.theme.KawachPrimary
@@ -78,6 +80,7 @@ import com.example.ui.viewmodel.KawachViewModel
 fun HomeScreen(
     viewModel: KawachViewModel,
     onNavigateToFiles: () -> Unit,
+    onNavigateToSavedMessages: () -> Unit = {},
     onConnectTelegram: () -> Unit
 ) {
     val context = LocalContext.current
@@ -260,6 +263,66 @@ fun HomeScreen(
                             CategoryStatChip(icon = Icons.Default.AudioFile, label = "Audio", count = audioCount, color = Color(0xFFA78BFA))
                             CategoryStatChip(icon = Icons.Default.Archive, label = "Archives", count = archiveCount, color = KawachAccent)
                         }
+                    }
+                }
+            }
+
+            // Telegram Saved Messages Chat Quick Access Card
+            item {
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp)
+                        .clickable { onNavigateToSavedMessages() }
+                        .testTag("home_saved_messages_card"),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(KawachPrimary.copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Bookmark,
+                                    contentDescription = null,
+                                    tint = KawachPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "Telegram Saved Messages",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Browse & download raw files stored in Saved Messages",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Open Saved Messages",
+                            tint = KawachPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }

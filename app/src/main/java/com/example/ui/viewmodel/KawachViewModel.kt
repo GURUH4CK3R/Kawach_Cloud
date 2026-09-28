@@ -154,6 +154,52 @@ class KawachViewModel(
     private val _previewError = MutableStateFlow<String?>(null)
     val previewError: StateFlow<String?> = _previewError.asStateFlow()
 
+    // TDLib Telegram Saved Messages screen state
+    private val _savedMessagesFiles = MutableStateFlow<List<CloudFile>>(emptyList())
+    val savedMessagesFiles: StateFlow<List<CloudFile>> = _savedMessagesFiles.asStateFlow()
+
+    private val _savedMessagesLoading = MutableStateFlow(false)
+    val savedMessagesLoading: StateFlow<Boolean> = _savedMessagesLoading.asStateFlow()
+
+    private val _savedMessagesRefreshing = MutableStateFlow(false)
+    val savedMessagesRefreshing: StateFlow<Boolean> = _savedMessagesRefreshing.asStateFlow()
+
+    private val _savedMessagesSearchQuery = MutableStateFlow("")
+    val savedMessagesSearchQuery: StateFlow<String> = _savedMessagesSearchQuery.asStateFlow()
+
+    private val _savedMessagesCategory = MutableStateFlow(FileCategory.ALL)
+    val savedMessagesCategory: StateFlow<FileCategory> = _savedMessagesCategory.asStateFlow()
+
+    private val _savedMessagesHasMore = MutableStateFlow(true)
+    val savedMessagesHasMore: StateFlow<Boolean> = _savedMessagesHasMore.asStateFlow()
+
+    private val _savedMessagesError = MutableStateFlow<String?>(null)
+    val savedMessagesError: StateFlow<String?> = _savedMessagesError.asStateFlow()
+
+    private val _savedMessagesSelectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    val savedMessagesSelectedIds: StateFlow<Set<Long>> = _savedMessagesSelectedIds.asStateFlow()
+
+    private val _isSavedMessagesSelectionMode = MutableStateFlow(false)
+    val isSavedMessagesSelectionMode: StateFlow<Boolean> = _isSavedMessagesSelectionMode.asStateFlow()
+
+    private var savedMessagesNextFromId: Long = 0L
+
+    val filteredSavedMessages: StateFlow<List<CloudFile>> = combine(
+        _savedMessagesFiles,
+        _savedMessagesSearchQuery,
+        _savedMessagesCategory
+    ) { files, query, category ->
+        files.filter { file ->
+            val matchesQuery = query.isBlank() || file.name.contains(query.trim(), ignoreCase = true) || file.kawachTag.contains(query.trim(), ignoreCase = true)
+            val matchesCategory = category == FileCategory.ALL || file.category == category
+            matchesQuery && matchesCategory
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     private var uploadJob: kotlinx.coroutines.Job? = null
     private var previewJob: kotlinx.coroutines.Job? = null
 
@@ -774,6 +820,163 @@ class KawachViewModel(
                 emitMessage("Folder removed")
             } else {
                 emitMessage("Failed to remove folder")
+            }
+        }
+    }
+
+    // TDLib Telegram Saved Messages screen actions
+    fun fetchSavedMessages(refresh: Boolean = false) {
+        if (authState.value !is TelegramAuthState.Authenticated) return
+
+        if (refresh) {
+            _savedMessagesRefreshing.value = true
+            savedMessagesNextFromId = 0L
+        } else {
+            if (_savedMessagesLoading.value) return
+            _savedMessagesLoading.value = true
+        }
+        _savedMessagesError.value = null
+
+        viewModelScope.launch {
+            val query = _savedMessagesSearchQuery.value
+            val result = repository.fetchSavedMessagesFromTelegram(
+                fromMessageId = savedMessagesNextFromId,
+                limit = 50,
+                searchQuery = query
+            )
+
+            if (result.isSuccess) {
+                val data = result.getOrThrow()
+                if (refresh || savedMessagesNextFromId == 0L) {
+                    _savedMessagesFiles.value = data.files
+                } else {
+                    val existing = _savedMessagesFiles.value.toMutableList()
+                    val existingIds = existing.map { it.messageId }.toSet()
+                    val newItems = data.files.filter { it.messageId !in existingIds }
+                    existing.addAll(newItems)
+                    _savedMessagesFiles.value = existing
+                }
+                savedMessagesNextFromId = data.nextFromMessageId
+                _savedMessagesHasMore.value = data.hasMore
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Failed to fetch Saved Messages files from Telegram"
+                _savedMessagesError.value = err
+                emitMessage(err)
+            }
+            _savedMessagesLoading.value = false
+            _savedMessagesRefreshing.value = false
+        }
+    }
+
+    fun loadMoreSavedMessages() {
+        if (_savedMessagesLoading.value || _savedMessagesRefreshing.value || !_savedMessagesHasMore.value) return
+        if (savedMessagesNextFromId == 0L) return
+
+        viewModelScope.launch {
+            _savedMessagesLoading.value = true
+            val query = _savedMessagesSearchQuery.value
+            val result = repository.fetchSavedMessagesFromTelegram(
+                fromMessageId = savedMessagesNextFromId,
+                limit = 50,
+                searchQuery = query
+            )
+
+            if (result.isSuccess) {
+                val data = result.getOrThrow()
+                val existing = _savedMessagesFiles.value.toMutableList()
+                val existingIds = existing.map { it.messageId }.toSet()
+                val newItems = data.files.filter { it.messageId !in existingIds }
+                existing.addAll(newItems)
+                _savedMessagesFiles.value = existing
+
+                savedMessagesNextFromId = data.nextFromMessageId
+                _savedMessagesHasMore.value = data.hasMore
+            }
+            _savedMessagesLoading.value = false
+        }
+    }
+
+    fun setSavedMessagesSearchQuery(query: String) {
+        _savedMessagesSearchQuery.value = query
+        savedMessagesNextFromId = 0L
+        fetchSavedMessages(refresh = true)
+    }
+
+    fun setSavedMessagesCategory(category: FileCategory) {
+        _savedMessagesCategory.value = category
+    }
+
+    fun toggleSavedMessageSelection(messageId: Long) {
+        val current = _savedMessagesSelectedIds.value
+        if (current.contains(messageId)) {
+            val updated = current - messageId
+            _savedMessagesSelectedIds.value = updated
+            if (updated.isEmpty()) {
+                _isSavedMessagesSelectionMode.value = false
+            }
+        } else {
+            _savedMessagesSelectedIds.value = current + messageId
+            _isSavedMessagesSelectionMode.value = true
+        }
+    }
+
+    fun selectAllSavedMessages(files: List<CloudFile>) {
+        _savedMessagesSelectedIds.value = files.map { it.messageId }.toSet()
+        _isSavedMessagesSelectionMode.value = true
+    }
+
+    fun clearSavedMessagesSelection() {
+        _savedMessagesSelectedIds.value = emptySet()
+        _isSavedMessagesSelectionMode.value = false
+    }
+
+    fun downloadSelectedSavedMessages() {
+        val selectedIds = _savedMessagesSelectedIds.value
+        if (selectedIds.isEmpty()) {
+            emitMessage("No files selected")
+            return
+        }
+
+        val allCurrentFiles = _savedMessagesFiles.value
+        val filesToDownload = allCurrentFiles.filter { it.messageId in selectedIds }
+        if (filesToDownload.isEmpty()) {
+            emitMessage("Selected files are no longer available")
+            clearSavedMessagesSelection()
+            return
+        }
+
+        val count = filesToDownload.size
+        clearSavedMessagesSelection()
+
+        viewModelScope.launch {
+            emitMessage("Downloading $count files from Saved Messages...")
+            var successCount = 0
+            var failCount = 0
+
+            for (file in filesToDownload) {
+                val result = repository.downloadFile(file)
+                if (result.isSuccess) {
+                    successCount++
+                } else {
+                    failCount++
+                }
+            }
+
+            if (failCount == 0) {
+                emitMessage("Downloaded all $successCount files to Downloads/KawachCloud")
+            } else {
+                emitMessage("Downloaded $successCount files ($failCount failed)")
+            }
+        }
+    }
+
+    fun importSavedMessageToFolder(file: CloudFile, targetFolderId: String) {
+        viewModelScope.launch {
+            val result = repository.importSavedMessageToFolder(file, targetFolderId)
+            if (result.isSuccess) {
+                emitMessage("Added \"${file.name}\" to folder")
+            } else {
+                emitMessage("Failed to save to folder")
             }
         }
     }

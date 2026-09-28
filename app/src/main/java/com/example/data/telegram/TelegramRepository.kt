@@ -207,6 +207,22 @@ class TelegramRepository(
         result
     }
 
+    suspend fun fetchSavedMessagesFromTelegram(
+        fromMessageId: Long = 0L,
+        limit: Int = 50,
+        searchQuery: String = ""
+    ): Result<TelegramClientManager.SavedMessagesFetchResult> {
+        return clientManager.fetchSavedMessagesFromTdlib(fromMessageId, limit, searchQuery)
+    }
+
+    suspend fun importSavedMessageToFolder(file: CloudFile, targetFolderId: String): Result<CloudFile> = withContext(Dispatchers.IO) {
+        val uid = currentUserId
+        if (uid == 0L) return@withContext Result.failure(IllegalStateException("User not authenticated"))
+        val updated = file.copy(folderId = targetFolderId)
+        fileDao.insertFile(FileEntity.fromCloudFile(updated, uid))
+        Result.success(updated)
+    }
+
     suspend fun uploadFromUri(
         uri: Uri,
         folderId: String = "root",

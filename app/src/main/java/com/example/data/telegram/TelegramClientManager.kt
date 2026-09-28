@@ -850,12 +850,55 @@ class TelegramClientManager(
         }
     }
 
+    data class SavedMessagesFetchResult(
+        val files: List<CloudFile>,
+        val nextFromMessageId: Long,
+        val hasMore: Boolean
+    )
+
+    suspend fun fetchSavedMessagesFromTdlib(
+        fromMessageId: Long = 0L,
+        limit: Int = 50,
+        searchQuery: String = ""
+    ): Result<SavedMessagesFetchResult> = withContext(Dispatchers.IO) {
+        val chatId = getSavedChatId()
+        if (chatId == 0L) {
+            return@withContext Result.failure(IllegalStateException("Saved Messages chat is not available. Please verify your connection."))
+        }
+
+        val getHistory = TdApi.GetChatHistory(chatId, fromMessageId, 0, limit, false)
+        val historyRes = sendAsync(getHistory)
+        if (historyRes.isFailure) return@withContext Result.failure(historyRes.exceptionOrNull() ?: Exception("Failed to fetch Saved Messages"))
+        val messages = historyRes.getOrThrow().messages
+
+        val parsedFiles = mutableListOf<CloudFile>()
+        for (msg in messages) {
+            val parsed = parseSavedMessage(msg, allowAllMedia = true)
+            parsed.file?.let { file ->
+                if (searchQuery.isBlank() || file.name.contains(searchQuery.trim(), ignoreCase = true) || file.kawachTag.contains(searchQuery.trim(), ignoreCase = true)) {
+                    parsedFiles.add(file)
+                }
+            }
+        }
+
+        val lastMsgId = if (messages.isNotEmpty()) messages.last().id else 0L
+        val hasMore = messages.size >= limit
+
+        Result.success(
+            SavedMessagesFetchResult(
+                files = parsedFiles,
+                nextFromMessageId = lastMsgId,
+                hasMore = hasMore
+            )
+        )
+    }
+
     data class ParsedMessageResult(
         val file: CloudFile? = null,
         val folder: Pair<String, String>? = null
     )
 
-    fun parseSavedMessage(message: TdApi.Message): ParsedMessageResult {
+    fun parseSavedMessage(message: TdApi.Message, allowAllMedia: Boolean = false): ParsedMessageResult {
         val content = message.content
 
         // 1. Check for folder metadata messages
@@ -928,10 +971,9 @@ class TelegramClientManager(
             else -> return ParsedMessageResult()
         }
 
-        // FINAL PRODUCT REQUIREMENT:
-        // Kawach Cloud must show ONLY files that were uploaded through Kawach Cloud.
-        // Do NOT show every file/media that exists in the user's Telegram Saved Messages.
-        if (captionText == null || (!captionText.contains(TelegramConstants.KAWACH_SIGNATURE) && !captionText.contains(TelegramConstants.KAWACH_TAG))) {
+        val hasKawachTag = captionText != null && (captionText.contains(TelegramConstants.KAWACH_SIGNATURE) || captionText.contains(TelegramConstants.KAWACH_TAG))
+
+        if (!allowAllMedia && !hasKawachTag) {
             return ParsedMessageResult()
         }
 
@@ -942,14 +984,22 @@ class TelegramClientManager(
             client?.send(TdApi.DownloadFile(thumbFile.id, 32, 0, 0, false)) {}
         }
 
-        val folderRegex = Regex("folder:([a-zA-Z0-9_-]+)")
-        val folderMatch = folderRegex.find(captionText)
-        val folderId = folderMatch?.groupValues?.getOrNull(1) ?: "root"
+        val folderId = if (hasKawachTag && captionText != null) {
+            val folderRegex = Regex("folder:([a-zA-Z0-9_-]+)")
+            val folderMatch = folderRegex.find(captionText)
+            folderMatch?.groupValues?.getOrNull(1) ?: "root"
+        } else {
+            "saved_messages"
+        }
 
         // Extract original name from signature if present: "name:<name>"
-        val nameRegex = Regex("name:(.+) ${Regex.escape(TelegramConstants.KAWACH_TAG)}")
-        val nameMatch = nameRegex.find(captionText)?.groupValues?.getOrNull(1)?.trim()
-        val realFileName = if (!nameMatch.isNullOrBlank()) nameMatch else fileName
+        val realFileName = if (hasKawachTag && captionText != null) {
+            val nameRegex = Regex("name:(.+) ${Regex.escape(TelegramConstants.KAWACH_TAG)}")
+            val nameMatch = nameRegex.find(captionText)?.groupValues?.getOrNull(1)?.trim()
+            if (!nameMatch.isNullOrBlank()) nameMatch else fileName
+        } else {
+            fileName
+        }
 
         val localPath = tdFile.local?.path
         val isDownloaded = tdFile.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank() && File(localPath).exists()
@@ -966,7 +1016,7 @@ class TelegramClientManager(
             folderId = folderId,
             localPath = localPath,
             isDownloaded = isDownloaded,
-            kawachTag = captionText,
+            kawachTag = captionText ?: "",
             thumbnailPath = thumbPath
         )
 
