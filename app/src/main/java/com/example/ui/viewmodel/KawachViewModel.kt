@@ -329,6 +329,12 @@ class KawachViewModel(
 
     fun logout() {
         viewModelScope.launch {
+            closePreview()
+            cancelUploadQueue()
+            _phoneNumberInput.value = ""
+            _otpInput.value = ""
+            _passwordInput.value = ""
+            _uploadQueue.value = emptyList()
             val result = repository.logout()
             if (result.isSuccess) {
                 emitMessage("Disconnected from Telegram")

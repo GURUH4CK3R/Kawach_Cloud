@@ -143,4 +143,47 @@ class ExampleUnitTest {
     org.junit.Assert.assertFalse(isKawach2)
     org.junit.Assert.assertFalse(isKawach3)
   }
+
+  @Test
+  fun mediaTypeDetection_isImageAndIsVideo() {
+    val formats = listOf("jpg", "jpeg", "png", "webp", "gif", "heic")
+    for (fmt in formats) {
+      val f = CloudFile(
+        messageId = 1L,
+        telegramFileId = 1,
+        name = "test.$fmt",
+        size = 100L,
+        mimeType = "application/octet-stream",
+        uploadDate = 1000L
+      )
+      assertTrue("Expected $fmt to be image", f.isImage)
+      org.junit.Assert.assertFalse(f.isVideo)
+    }
+
+    val videoFormats = listOf("mp4", "mkv", "webm", "mov", "avi")
+    for (vfmt in videoFormats) {
+      val f = CloudFile(
+        messageId = 2L,
+        telegramFileId = 2,
+        name = "test.$vfmt",
+        size = 100L,
+        mimeType = "application/octet-stream",
+        uploadDate = 1000L
+      )
+      assertTrue("Expected $vfmt to be video", f.isVideo)
+      org.junit.Assert.assertFalse(f.isImage)
+    }
+
+    val doc = CloudFile(
+      messageId = 3L,
+      telegramFileId = 3,
+      name = "notes.pdf",
+      size = 100L,
+      mimeType = "application/pdf",
+      uploadDate = 1000L
+    )
+    org.junit.Assert.assertFalse(doc.isImage)
+    org.junit.Assert.assertFalse(doc.isVideo)
+  }
 }
+

@@ -168,6 +168,9 @@ class TelegramRepository(
         _activeUserId.value = 0L
         currentUserId = 0L
         activeTransfers.value = emptyMap()
+        try {
+            File(context.cacheDir, "previews").deleteRecursively()
+        } catch (_: Exception) {}
         return clientManager.logout()
     }
 
@@ -442,6 +445,8 @@ class TelegramRepository(
                 val tf = File(file.thumbnailPath)
                 if (tf.exists()) tf.delete()
             }
+            val previewCacheFile = File(File(context.cacheDir, "previews"), "${file.messageId}_${file.name}")
+            if (previewCacheFile.exists()) previewCacheFile.delete()
             Result.success(Unit)
         } else {
             Result.failure(result.exceptionOrNull() ?: Exception("Failed to delete file from Telegram"))
