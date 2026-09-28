@@ -173,10 +173,11 @@ fun HomeScreen(
             // Big Upload File Glass Button
             item {
                 GlassButton(
-                    text = "Upload File",
+                    text = if (isUploading) "Uploading..." else "Upload File",
                     icon = Icons.Default.CloudUpload,
-                    onClick = { filePickerLauncher.launch("*/*") },
-                    enabled = authState is TelegramAuthState.Authenticated,
+                    onClick = { if (!isUploading) filePickerLauncher.launch("*/*") },
+                    enabled = authState is TelegramAuthState.Authenticated && !isUploading,
+                    isLoading = isUploading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 24.dp),

@@ -55,6 +55,10 @@ class TelegramClientManager(
     // Progress listeners: fileId -> (progress: Float, isCompleted: Boolean, path: String?)
     private val progressListeners = ConcurrentHashMap<Int, (Float, Boolean, String?) -> Unit>()
 
+    var onDeleteMessagesListener: ((List<Long>) -> Unit)? = null
+    var onThumbnailDownloadedListener: ((Int, String) -> Unit)? = null
+    private val pendingUploadCompletions = ConcurrentHashMap<Long, kotlinx.coroutines.CompletableDeferred<TdApi.Message>>()
+
     fun getEffectiveApiId(): Int {
         val custom = preferenceManager.getSyncApiId()
         if (custom.isNotBlank()) {
@@ -141,6 +145,21 @@ class TelegramClientManager(
                 if (update.user.id == currentUserId) {
                     val user = mapUser(update.user)
                     _authState.value = TelegramAuthState.Authenticated(user)
+                }
+            }
+            is TdApi.UpdateMessageSendSucceeded -> {
+                val oldId = update.oldMessageId
+                val deferred = pendingUploadCompletions.remove(oldId)
+                deferred?.complete(update.message)
+            }
+            is TdApi.UpdateMessageSendFailed -> {
+                val oldId = update.oldMessageId
+                val deferred = pendingUploadCompletions.remove(oldId)
+                deferred?.completeExceptionally(Exception("Telegram send failed: ${update.error?.message} (${update.error?.code})"))
+            }
+            is TdApi.UpdateDeleteMessages -> {
+                if (update.chatId == savedMessagesChatId) {
+                    onDeleteMessagesListener?.invoke(update.messageIds.toList())
                 }
             }
         }
@@ -523,11 +542,14 @@ class TelegramClientManager(
             return@withContext Result.failure(sendResult.exceptionOrNull() ?: Exception("Upload failed"))
         }
 
-        val message = sendResult.getOrThrow()
-        val content = message.content as? TdApi.MessageDocument
-        val doc = content?.document
+        val initialMessage = sendResult.getOrThrow()
+        val oldMessageId = initialMessage.id
+        val uploadDeferred = kotlinx.coroutines.CompletableDeferred<TdApi.Message>()
+        pendingUploadCompletions[oldMessageId] = uploadDeferred
 
-        val tgFileId = doc?.document?.id ?: 0
+        val content = initialMessage.content as? TdApi.MessageDocument
+        val initialDoc = content?.document
+        val tgFileId = initialDoc?.document?.id ?: 0
 
         if (tgFileId > 0) {
             progressListeners[tgFileId] = { progress, isCompleted, _ ->
@@ -538,14 +560,30 @@ class TelegramClientManager(
             }
         }
 
+        // Await TDLib's UpdateMessageSendSucceeded with the permanent server message ID
+        val confirmedMessage = try {
+            withTimeout(45000L) {
+                uploadDeferred.await()
+            }
+        } catch (_: Exception) {
+            pendingUploadCompletions.remove(oldMessageId)
+            initialMessage
+        } finally {
+            if (tgFileId > 0) progressListeners.remove(tgFileId)
+        }
+
+        val finalDoc = (confirmedMessage.content as? TdApi.MessageDocument)?.document
+        val finalTgFileId = finalDoc?.document?.id ?: tgFileId
+        val finalRemoteId = finalDoc?.document?.remote?.id ?: uniqueId
+
         val cloudFile = CloudFile(
-            messageId = message.id,
-            telegramFileId = tgFileId,
-            remoteFileId = doc?.document?.remote?.id ?: uniqueId,
+            messageId = confirmedMessage.id,
+            telegramFileId = finalTgFileId,
+            remoteFileId = finalRemoteId,
             name = fileName,
             size = file.length(),
             mimeType = mimeType,
-            uploadDate = message.date.toLong(),
+            uploadDate = (if (confirmedMessage.date > 0) confirmedMessage.date else System.currentTimeMillis() / 1000L).toLong(),
             folderId = folderId,
             localPath = file.absolutePath,
             isDownloaded = true,
@@ -890,6 +928,13 @@ class TelegramClientManager(
             else -> return ParsedMessageResult()
         }
 
+        // FINAL PRODUCT REQUIREMENT:
+        // Kawach Cloud must show ONLY files that were uploaded through Kawach Cloud.
+        // Do NOT show every file/media that exists in the user's Telegram Saved Messages.
+        if (captionText == null || (!captionText.contains(TelegramConstants.KAWACH_SIGNATURE) && !captionText.contains(TelegramConstants.KAWACH_TAG))) {
+            return ParsedMessageResult()
+        }
+
         if (tdFile == null) return ParsedMessageResult()
 
         // Trigger thumbnail download in background if available and not yet downloaded
@@ -898,21 +943,13 @@ class TelegramClientManager(
         }
 
         val folderRegex = Regex("folder:([a-zA-Z0-9_-]+)")
-        val folderMatch = if (captionText != null) folderRegex.find(captionText) else null
-        val explicitFolder = folderMatch?.groupValues?.getOrNull(1)
+        val folderMatch = folderRegex.find(captionText)
+        val folderId = folderMatch?.groupValues?.getOrNull(1) ?: "root"
 
-        val folderId = when {
-            explicitFolder != null -> explicitFolder
-            content is TdApi.MessagePhoto || content is TdApi.MessageVideo || content is TdApi.MessageAnimation -> "media"
-            content is TdApi.MessageAudio || content is TdApi.MessageVoiceNote -> "media"
-            content is TdApi.MessageDocument -> {
-                val ext = fileName.substringAfterLast('.', "").lowercase()
-                if (ext in listOf("zip", "rar", "7z", "tar", "gz")) "archives"
-                else if (ext in listOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx")) "docs"
-                else "saved_messages"
-            }
-            else -> "saved_messages"
-        }
+        // Extract original name from signature if present: "name:<name>"
+        val nameRegex = Regex("name:(.+) ${Regex.escape(TelegramConstants.KAWACH_TAG)}")
+        val nameMatch = nameRegex.find(captionText)?.groupValues?.getOrNull(1)?.trim()
+        val realFileName = if (!nameMatch.isNullOrBlank()) nameMatch else fileName
 
         val localPath = tdFile.local?.path
         val isDownloaded = tdFile.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank() && File(localPath).exists()
@@ -922,18 +959,41 @@ class TelegramClientManager(
             messageId = message.id,
             telegramFileId = tdFile.id,
             remoteFileId = tdFile.remote?.id ?: "",
-            name = fileName,
-            size = tdFile.size,
+            name = realFileName,
+            size = if (tdFile.size > 0) tdFile.size else 0L,
             mimeType = mimeType,
             uploadDate = message.date.toLong(),
             folderId = folderId,
             localPath = localPath,
             isDownloaded = isDownloaded,
-            kawachTag = captionText ?: "",
+            kawachTag = captionText,
             thumbnailPath = thumbPath
         )
 
         return ParsedMessageResult(file = cloudFile)
+    }
+
+    suspend fun verifyExistingMessages(messageIds: LongArray): List<Long> = withContext(Dispatchers.IO) {
+        val chatId = getSavedChatId()
+        if (chatId == 0L || messageIds.isEmpty()) return@withContext emptyList()
+
+        val validIds = mutableListOf<Long>()
+        val chunks = messageIds.toList().chunked(100)
+        for (chunk in chunks) {
+            val getMsgs = TdApi.GetMessages(chatId, chunk.toLongArray())
+            val res = sendAsync(getMsgs)
+            if (res.isSuccess) {
+                val msgs = res.getOrThrow().messages
+                for (msg in msgs) {
+                    if (msg != null && msg.id != 0L) {
+                        validIds.add(msg.id)
+                    }
+                }
+            } else {
+                validIds.addAll(chunk)
+            }
+        }
+        validIds
     }
 
     private fun send(function: TdApi.Function<*>, handler: (TdApi.Object) -> Unit) {

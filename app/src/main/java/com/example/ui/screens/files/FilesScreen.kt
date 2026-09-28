@@ -166,13 +166,21 @@ fun FilesScreen(
         floatingActionButton = {
             if (authState is TelegramAuthState.Authenticated) {
                 FloatingActionButton(
-                    onClick = { filePickerLauncher.launch("*/*") },
-                    containerColor = KawachPrimaryDark,
-                    contentColor = Color.White,
+                    onClick = { if (!isUploading) filePickerLauncher.launch("*/*") },
+                    containerColor = if (isUploading) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = CircleShape,
                     modifier = Modifier.testTag("files_upload_fab")
                 ) {
-                    Icon(Icons.Default.CloudUpload, contentDescription = "Upload File")
+                    if (isUploading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.CloudUpload, contentDescription = "Upload File")
+                    }
                 }
             }
         },

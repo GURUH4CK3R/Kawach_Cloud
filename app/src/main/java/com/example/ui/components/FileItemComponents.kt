@@ -406,13 +406,13 @@ fun FileDropdownMenu(
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
                 onClick = { onDismiss(); onOpen() }
             )
-        } else {
-            DropdownMenuItem(
-                text = { Text("Download") },
-                leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
-                onClick = { onDismiss(); onDownload() }
-            )
         }
+
+        DropdownMenuItem(
+            text = { Text(if (file.hasLocalFile) "Download to Device" else "Download") },
+            leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+            onClick = { onDismiss(); onDownload() }
+        )
 
         DropdownMenuItem(
             text = { Text("Share") },
@@ -487,24 +487,30 @@ fun FileDetailsDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (file.hasLocalFile) {
                         Button(
                             onClick = { onDismiss(); onOpen() },
                             colors = ButtonDefaults.buttonColors(containerColor = KawachSuccess),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
                             Text("Open", color = Color.White)
                         }
-                    } else {
-                        Button(
-                            onClick = { onDismiss(); onDownload() },
-                            colors = ButtonDefaults.buttonColors(containerColor = KawachPrimaryDark),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Download", color = Color.White)
-                        }
+                    }
+
+                    Button(
+                        onClick = { onDismiss(); onDownload() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Download")
                     }
 
                     OutlinedButton(

@@ -65,6 +65,26 @@ class TelegramRepository(
                 }
             }
         }
+
+        clientManager.onDeleteMessagesListener = { deletedMessageIds ->
+            val uid = currentUserId
+            if (uid != 0L) {
+                scope.launch(Dispatchers.IO) {
+                    for (msgId in deletedMessageIds) {
+                        fileDao.deleteFileByMessageId(msgId, uid)
+                    }
+                }
+            }
+        }
+
+        clientManager.onThumbnailDownloadedListener = { fileId, path ->
+            val uid = currentUserId
+            if (uid != 0L) {
+                scope.launch(Dispatchers.IO) {
+                    fileDao.updateThumbnailForTelegramFileId(fileId, uid, path)
+                }
+            }
+        }
     }
 
     private suspend fun ensureDefaultFolders(userId: Long) {
@@ -167,6 +187,20 @@ class TelegramRepository(
                 fileDao.insertFiles(fileEntities)
             }
         }
+
+        // Verify known files against Telegram and prune any that were deleted remotely
+        try {
+            val localFiles = fileDao.getFilesForUser(uid).firstOrNull() ?: emptyList()
+            if (localFiles.isNotEmpty()) {
+                val messageIds = localFiles.map { it.messageId }.toLongArray()
+                val survivingIds = clientManager.verifyExistingMessages(messageIds).toSet()
+                val deletedIds = localFiles.map { it.messageId }.filter { it !in survivingIds }
+                for (delId in deletedIds) {
+                    fileDao.deleteFileByMessageId(delId, uid)
+                }
+            }
+        } catch (_: Exception) {}
+
         result
     }
 
@@ -321,14 +355,24 @@ class TelegramRepository(
     }
 
     suspend fun deleteFile(file: CloudFile): Result<Unit> = withContext(Dispatchers.IO) {
+        val uid = currentUserId
         // Real deletion from Telegram Saved Messages
         val result = clientManager.deleteFile(file.messageId)
         if (result.isSuccess) {
-            fileDao.deleteFileByMessageId(file.messageId)
+            if (uid != 0L) {
+                fileDao.deleteFileByMessageId(file.messageId, uid)
+            } else {
+                fileDao.deleteFileByMessageId(file.messageId)
+            }
+            activeTransfers.value = activeTransfers.value - file.messageId
             // Delete local cached copy if present
-            if (!file.localPath.isNullOrBlank()) {
+            if (!file.localPath.isNullOrBlank() && !file.localPath.startsWith("content://")) {
                 val f = File(file.localPath)
                 if (f.exists()) f.delete()
+            }
+            if (!file.thumbnailPath.isNullOrBlank()) {
+                val tf = File(file.thumbnailPath)
+                if (tf.exists()) tf.delete()
             }
             Result.success(Unit)
         } else {

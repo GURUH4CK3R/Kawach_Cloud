@@ -105,6 +105,9 @@ class KawachViewModel(
     private val _isUploading = MutableStateFlow(false)
     val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
+    private val uploadMutex = kotlinx.coroutines.sync.Mutex()
+    private var inFlightUri: String? = null
+
     // Snackbars / notifications
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
@@ -307,28 +310,42 @@ class KawachViewModel(
     }
 
     fun uploadFile(uri: Uri) {
+        val uriStr = uri.toString()
+        if (_isUploading.value || !uploadMutex.tryLock()) {
+            return
+        }
+        if (inFlightUri == uriStr) {
+            uploadMutex.unlock()
+            return
+        }
+        inFlightUri = uriStr
+
         viewModelScope.launch {
-            _isUploading.value = true
-            _activeUploadProgress.value = 0.05f
-            _activeUploadName.value = "Preparing upload..."
+            try {
+                _isUploading.value = true
+                _activeUploadProgress.value = 0.05f
+                _activeUploadName.value = "Preparing upload..."
 
-            val folder = if (_selectedFolderId.value == "all") "root" else _selectedFolderId.value
-            val result = repository.uploadFromUri(
-                uri = uri,
-                folderId = folder,
-                onProgress = { progress ->
-                    _activeUploadProgress.value = progress
+                val folder = if (_selectedFolderId.value == "all") "root" else _selectedFolderId.value
+                val result = repository.uploadFromUri(
+                    uri = uri,
+                    folderId = folder,
+                    onProgress = { progress ->
+                        _activeUploadProgress.value = progress
+                    }
+                )
+
+                if (result.isSuccess) {
+                    val file = result.getOrThrow()
+                    emitMessage("Upload complete: ${file.name}")
+                } else {
+                    emitMessage(result.exceptionOrNull()?.message ?: "Upload failed")
                 }
-            )
-
-            _isUploading.value = false
-            _activeUploadName.value = null
-
-            if (result.isSuccess) {
-                val file = result.getOrThrow()
-                emitMessage("Upload complete: ${file.name}")
-            } else {
-                emitMessage(result.exceptionOrNull()?.message ?: "Upload failed")
+            } finally {
+                _isUploading.value = false
+                _activeUploadName.value = null
+                inFlightUri = null
+                uploadMutex.unlock()
             }
         }
     }

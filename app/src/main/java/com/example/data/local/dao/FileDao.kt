@@ -30,6 +30,12 @@ interface FileDao {
     @Query("DELETE FROM cloud_files WHERE messageId = :messageId")
     suspend fun deleteFileByMessageId(messageId: Long)
 
+    @Query("DELETE FROM cloud_files WHERE messageId = :messageId AND userId = :userId")
+    suspend fun deleteFileByMessageId(messageId: Long, userId: Long)
+
+    @Query("UPDATE cloud_files SET thumbnailPath = :thumbnailPath WHERE telegramFileId = :telegramFileId AND userId = :userId")
+    suspend fun updateThumbnailForTelegramFileId(telegramFileId: Int, userId: Long, thumbnailPath: String)
+
     @Query("DELETE FROM cloud_files WHERE userId = :userId")
     suspend fun deleteFilesForUser(userId: Long)
 

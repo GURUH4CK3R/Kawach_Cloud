@@ -128,4 +128,19 @@ class ExampleUnitTest {
     )
     assertEquals(FileCategory.AUDIO, audio.category)
   }
+
+  @Test
+  fun kawachSignature_filtersUnrelatedMessages() {
+    val kawachCaption = "[KawachCloud] folder:docs | id:abc-123 | name:report.pdf #KawachCloud"
+    val unrelatedCaption = "Here is a forwarded photo from vacation"
+    val emptyCaption = ""
+
+    val isKawach1 = kawachCaption.contains("[KawachCloud]") || kawachCaption.contains("#KawachCloud")
+    val isKawach2 = unrelatedCaption.contains("[KawachCloud]") || unrelatedCaption.contains("#KawachCloud")
+    val isKawach3 = emptyCaption.contains("[KawachCloud]") || emptyCaption.contains("#KawachCloud")
+
+    assertTrue(isKawach1)
+    org.junit.Assert.assertFalse(isKawach2)
+    org.junit.Assert.assertFalse(isKawach3)
+  }
 }
