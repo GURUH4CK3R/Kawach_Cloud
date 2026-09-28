@@ -1,17 +1,16 @@
 # Screenshots Directory
 
-This directory stores visual assets and screenshots showcasing Kawach Cloud on real Android devices.
+Visual assets showcasing Kawach Cloud on Android.
 
-## Expected Screenshots
+## App Screens
 
 | File | Screen | Description |
 | :--- | :--- | :--- |
-| `home.png` | Home Screen | Shows cloud storage overview, category statistics, quick upload action, and recent files. |
-| `files.png` | Files Screen | Demonstrates folder chips, category filters, search bar, list/grid toggle, and file cards. |
-| `settings.png` | Settings Screen | Displays theme selector (System, Dark, Light), Telegram connection status, and About card. |
-| `connect_telegram.png` | Login Screen | Shows phone number input with country code selector, OTP prompt, and 2FA verification. |
-
-## Screenshot Guidelines
-- **Device**: Android phone running Android 8.0+ (API 26+) or modern device with Material You / Edge-to-Edge display.
-- **Resolution**: Recommended 1080x2400 (or standard 9:19.5 / 9:20 ratio), saved as PNG.
-- **Privacy**: Ensure screenshots do not display personal telephone numbers, sensitive contact details, or personal files.
+| `splash.svg` | Splash Screen | Brand startup animation, shield logo, and app identity |
+| `home.svg` | Home | Storage breakdown, category stats, quick upload, and recent files |
+| `files.svg` | Files | Folder chips, category filters, instant search, and grid layout |
+| `image-preview.svg` | Image Preview | In-app photo inspection with pinch-to-zoom and pan gestures |
+| `video-player.svg` | Video Player | Built-in ExoPlayer video player with 10s seeking and controls |
+| `upload.svg` | Upload | Multi-file upload queue with live progress and cancellation |
+| `settings.svg` | Settings | Theme selector (System, Dark, Light), cache and account status |
+| `about.svg` | About | Version, developer info, open source license, and disclaimer |

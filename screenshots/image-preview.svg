@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 2400" width="1080" height="2400">
+  <defs>
+    <linearGradient id="previewBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#030712"/>
+      <stop offset="100%" stop-color="#02040A"/>
+    </linearGradient>
+    <linearGradient id="imgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0369A1"/>
+      <stop offset="50%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="2400" fill="url(#previewBg)" rx="72"/>
+
+  <!-- Status Bar -->
+  <text x="80" y="90" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="600">9:41</text>
+  <circle cx="940" cy="80" r="14" fill="#94A3B8"/>
+  <rect x="970" y="70" width="36" height="20" rx="6" fill="#94A3B8"/>
+
+  <!-- Top App Bar -->
+  <g transform="translate(60, 180)">
+    <!-- Back Button -->
+    <rect width="70" height="70" rx="20" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+    <text x="35" y="47" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="36">‹</text>
+
+    <!-- File Title & Details -->
+    <text x="100" y="40" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="700">nature_landscape.jpg</text>
+    <text x="100" y="72" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24">4.8 MB • Image • Saved Messages</text>
+
+    <!-- Download Icon Button -->
+    <rect x="800" width="70" height="70" rx="20" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+    <text x="835" y="46" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="28">↓</text>
+
+    <!-- Share Icon Button -->
+    <rect x="890" width="70" height="70" rx="20" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+    <text x="925" y="46" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="28">↗</text>
+  </g>
+
+  <!-- Photo Viewer Container (Pinch to Zoom Demo) -->
+  <g transform="translate(60, 360)">
+    <!-- Large Photo Frame -->
+    <rect width="960" height="1520" rx="36" fill="#0B1320" stroke="#1E293B" stroke-width="2"/>
+    
+    <!-- Rendered Image Representation -->
+    <g transform="translate(40, 40)">
+      <rect width="880" height="1440" rx="24" fill="url(#imgGrad)" fill-opacity="0.85"/>
+      <!-- Mountain Shapes -->
+      <path d="M 0 1440 L 260 820 L 520 1440 Z" fill="#042F4D" fill-opacity="0.9"/>
+      <path d="M 320 1440 L 640 680 L 880 1440 Z" fill="#021C30" fill-opacity="0.95"/>
+      <!-- Sun -->
+      <circle cx="700" cy="400" r="110" fill="#FEF08A" fill-opacity="0.9"/>
+    </g>
+
+    <!-- Floating Zoom Indicator Pill -->
+    <g transform="translate(480, 1400)">
+      <rect x="-100" y="-30" width="200" height="60" rx="30" fill="#0F172A" fill-opacity="0.85" stroke="#38BDF8" stroke-width="2"/>
+      <text x="0" y="10" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">Zoom: 100%</text>
+    </g>
+  </g>
+
+  <!-- Bottom Details Bar -->
+  <g transform="translate(60, 2020)">
+    <rect width="960" height="140" rx="28" fill="#0D1829" stroke="#1E293B" stroke-width="1.5"/>
+    <text x="40" y="55" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="600">Pinch to zoom (up to 5x) • Double-tap to reset</text>
+    <text x="40" y="95" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="22">Indexed via Kawach Cloud MTProto Engine</text>
+    
+    <!-- Quality Pill -->
+    <rect x="800" y="45" width="120" height="50" rx="14" fill="#0284C7" fill-opacity="0.25"/>
+    <text x="860" y="78" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="700">FULL RES</text>
+  </g>
+
+  <!-- Home Indicator -->
+  <rect x="390" y="2350" width="300" height="10" rx="5" fill="#475569"/>
+</svg>
