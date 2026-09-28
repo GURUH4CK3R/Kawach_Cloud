@@ -59,6 +59,7 @@
 - **Version**: `1.0.0`
 - **Status**: `Release`
 - **Storage Quota**: `Unlimited` (via Telegram Saved Messages)
+- **Telegram Updates**: [Join the Kawach Cloud Telegram group](https://t.me/Kawach_cloud)
 
 ---
 
