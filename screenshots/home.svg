@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 2400" width="1080" height="2400">
+  <defs>
+    <linearGradient id="homeBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#050B14"/>
+      <stop offset="60%" stop-color="#091424"/>
+      <stop offset="100%" stop-color="#050B14"/>
+    </linearGradient>
+    <linearGradient id="cardGradHome" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#112238" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0B1728" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="accentBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="70%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="2400" fill="url(#homeBg)" rx="72"/>
+
+  <!-- Status Bar -->
+  <text x="80" y="90" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="600">9:41</text>
+  <circle cx="940" cy="80" r="14" fill="#94A3B8"/>
+  <rect x="970" y="70" width="36" height="20" rx="6" fill="#94A3B8"/>
+
+  <!-- Top App Bar -->
+  <g transform="translate(70, 190)">
+    <!-- Small Logo Icon -->
+    <rect x="0" y="0" width="80" height="80" rx="22" fill="#1E293B" stroke="#0284C7" stroke-width="2"/>
+    <path d="M 40 16 L 62 26 C 62 48, 52 64, 40 70 C 28 64, 18 48, 18 26 Z" fill="#0284C7"/>
+    <text x="105" y="44" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="44" font-weight="800">Kawach Cloud</text>
+    <text x="105" y="74" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="500">Connected to Saved Messages</text>
+    
+    <!-- Sync Indicator -->
+    <rect x="850" y="10" width="90" height="60" rx="30" fill="#166534" fill-opacity="0.3" stroke="#22C55E" stroke-width="2"/>
+    <circle cx="875" cy="40" r="8" fill="#22C55E"/>
+    <text x="895" y="48" fill="#4ADE80" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="700">LIVE</text>
+  </g>
+
+  <!-- Storage Overview Card -->
+  <g transform="translate(60, 330)">
+    <rect width="960" height="420" rx="36" fill="url(#cardGradHome)" stroke="#1E3A5F" stroke-width="2"/>
+    
+    <!-- Title & Cloud Icon -->
+    <text x="50" y="70" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="700">Storage Overview</text>
+    <text x="50" y="110" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24">Telegram Saved Messages Backend</text>
+    
+    <!-- Big Storage Number -->
+    <text x="50" y="210" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="68" font-weight="800">14.8 GB</text>
+    <text x="320" y="210" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="500">/ 128 Indexed Files</text>
+
+    <!-- Progress Bar Track -->
+    <rect x="50" y="250" width="860" height="24" rx="12" fill="#0F172A"/>
+    <!-- Progress Bar Filled -->
+    <rect x="50" y="250" width="560" height="24" rx="12" fill="url(#accentBar)"/>
+
+    <!-- Category Dots -->
+    <circle cx="65" cy="330" r="10" fill="#0284C7"/>
+    <text x="90" y="338" fill="#CBD5E1" font-family="-apple-system, Roboto, sans-serif" font-size="26">Images (8.2 GB)</text>
+
+    <circle cx="370" cy="330" r="10" fill="#F97316"/>
+    <text x="395" y="338" fill="#CBD5E1" font-family="-apple-system, Roboto, sans-serif" font-size="26">Videos (5.4 GB)</text>
+
+    <circle cx="675" cy="330" r="10" fill="#38BDF8"/>
+    <text x="700" y="338" fill="#CBD5E1" font-family="-apple-system, Roboto, sans-serif" font-size="26">Docs (1.2 GB)</text>
+  </g>
+
+  <!-- Quick Actions Row -->
+  <g transform="translate(60, 800)">
+    <!-- Primary Upload Button -->
+    <rect width="460" height="110" rx="30" fill="url(#btnGrad)"/>
+    <text x="180" y="68" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="32" font-weight="700">Upload Files</text>
+    
+    <!-- New Folder Button -->
+    <rect x="500" width="460" height="110" rx="30" fill="#1E293B" stroke="#334155" stroke-width="2"/>
+    <text x="660" y="68" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="32" font-weight="700">New Folder</text>
+  </g>
+
+  <!-- Section Header -->
+  <g transform="translate(60, 980)">
+    <text x="0" y="0" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="700">Recent Files</text>
+    <text x="960" y="0" text-anchor="end" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="600">View All</text>
+  </g>
+
+  <!-- File Item 1: Image -->
+  <g transform="translate(60, 1030)">
+    <rect width="960" height="150" rx="26" fill="#0E1E33" stroke="#1E293B" stroke-width="1.5"/>
+    <!-- Icon Box -->
+    <rect x="24" y="25" width="100" height="100" rx="20" fill="#0284C7" fill-opacity="0.2"/>
+    <text x="74" y="85" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="bold">IMG</text>
+    <!-- Text -->
+    <text x="150" y="65" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="600">vacation_sunset.jpg</text>
+    <text x="150" y="105" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="24">3.4 MB • Today, 10:14 AM</text>
+    <!-- Cloud Synced Tag -->
+    <rect x="800" y="50" width="120" height="50" rx="14" fill="#047857" fill-opacity="0.3"/>
+    <text x="860" y="83" text-anchor="middle" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="700">SAVED</text>
+  </g>
+
+  <!-- File Item 2: Video -->
+  <g transform="translate(60, 1210)">
+    <rect width="960" height="150" rx="26" fill="#0E1E33" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="24" y="25" width="100" height="100" rx="20" fill="#F97316" fill-opacity="0.2"/>
+    <text x="74" y="85" text-anchor="middle" fill="#FB923C" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="bold">VID</text>
+    <text x="150" y="65" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="600">project_demo_4k.mp4</text>
+    <text x="150" y="105" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="24">148.2 MB • Yesterday</text>
+    <rect x="800" y="50" width="120" height="50" rx="14" fill="#047857" fill-opacity="0.3"/>
+    <text x="860" y="83" text-anchor="middle" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="700">SAVED</text>
+  </g>
+
+  <!-- File Item 3: Document -->
+  <g transform="translate(60, 1390)">
+    <rect width="960" height="150" rx="26" fill="#0E1E33" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="24" y="25" width="100" height="100" rx="20" fill="#38BDF8" fill-opacity="0.2"/>
+    <text x="74" y="85" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="bold">PDF</text>
+    <text x="150" y="65" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="600">kawach_whitepaper_v1.pdf</text>
+    <text x="150" y="105" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="24">2.1 MB • Sep 26, 2026</text>
+    <rect x="800" y="50" width="120" height="50" rx="14" fill="#047857" fill-opacity="0.3"/>
+    <text x="860" y="83" text-anchor="middle" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="700">SAVED</text>
+  </g>
+
+  <!-- File Item 4: Archive -->
+  <g transform="translate(60, 1570)">
+    <rect width="960" height="150" rx="26" fill="#0E1E33" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="24" y="25" width="100" height="100" rx="20" fill="#A855F7" fill-opacity="0.2"/>
+    <text x="74" y="85" text-anchor="middle" fill="#C084FC" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="bold">ZIP</text>
+    <text x="150" y="65" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="600">source_backup_bundle.zip</text>
+    <text x="150" y="105" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="24">34.6 MB • Sep 25, 2026</text>
+    <rect x="800" y="50" width="120" height="50" rx="14" fill="#047857" fill-opacity="0.3"/>
+    <text x="860" y="83" text-anchor="middle" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="700">SAVED</text>
+  </g>
+
+  <!-- Bottom Navigation Bar -->
+  <g transform="translate(0, 2180)">
+    <rect width="1080" height="220" fill="#0B1320" stroke="#1E293B" stroke-width="1"/>
+    
+    <!-- Nav Item 1: Home (Active) -->
+    <rect x="120" y="30" width="120" height="70" rx="35" fill="#0284C7" fill-opacity="0.25"/>
+    <circle cx="180" cy="65" r="16" fill="#38BDF8"/>
+    <text x="180" y="145" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">Home</text>
+
+    <!-- Nav Item 2: Files -->
+    <circle cx="540" cy="65" r="16" fill="#64748B"/>
+    <text x="540" y="145" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="500">Files</text>
+
+    <!-- Nav Item 3: Settings -->
+    <circle cx="900" cy="65" r="16" fill="#64748B"/>
+    <text x="900" y="145" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="500">Settings</text>
+    
+    <rect x="390" y="195" width="300" height="8" rx="4" fill="#475569"/>
+  </g>
+</svg>

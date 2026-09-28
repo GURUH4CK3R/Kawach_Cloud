@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 2400" width="1080" height="2400">
+  <defs>
+    <linearGradient id="filesBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#050B14"/>
+      <stop offset="60%" stop-color="#091424"/>
+      <stop offset="100%" stop-color="#050B14"/>
+    </linearGradient>
+    <linearGradient id="cardGradFiles" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#112238"/>
+      <stop offset="100%" stop-color="#0E1B2E"/>
+    </linearGradient>
+    <linearGradient id="uploadBarGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="2400" fill="url(#filesBg)" rx="72"/>
+
+  <!-- Status Bar -->
+  <text x="80" y="90" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="600">9:41</text>
+  <circle cx="940" cy="80" r="14" fill="#94A3B8"/>
+  <rect x="970" y="70" width="36" height="20" rx="6" fill="#94A3B8"/>
+
+  <!-- Top Header -->
+  <g transform="translate(60, 180)">
+    <text x="0" y="44" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="44" font-weight="800">Files &amp; Folders</text>
+    <text x="0" y="80" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24">128 Kawach-indexed items</text>
+
+    <!-- Grid / List Switcher Button -->
+    <rect x="860" y="10" width="100" height="70" rx="20" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
+    <rect x="885" y="32" width="18" height="18" rx="4" fill="#38BDF8"/>
+    <rect x="915" y="32" width="18" height="18" rx="4" fill="#38BDF8"/>
+    <rect x="885" y="55" width="18" height="18" rx="4" fill="#38BDF8"/>
+    <rect x="915" y="55" width="18" height="18" rx="4" fill="#38BDF8"/>
+  </g>
+
+  <!-- Search Bar -->
+  <g transform="translate(60, 300)">
+    <rect width="960" height="100" rx="28" fill="#0E1B2E" stroke="#1E3A5F" stroke-width="2"/>
+    <circle cx="60" cy="50" r="18" stroke="#64748B" stroke-width="4" fill="none"/>
+    <line x1="74" y1="64" x2="90" y2="80" stroke="#64748B" stroke-width="4" stroke-linecap="round"/>
+    <text x="120" y="60" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="28">Search files in Saved Messages...</text>
+  </g>
+
+  <!-- Folder Chips -->
+  <g transform="translate(60, 440)">
+    <!-- Root / All (Active) -->
+    <rect width="180" height="66" rx="33" fill="#0284C7"/>
+    <text x="90" y="44" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">📁 Root</text>
+
+    <!-- Photos Folder -->
+    <rect x="200" width="220" height="66" rx="33" fill="#0F1D30" stroke="#1E293B" stroke-width="1.5"/>
+    <text x="310" y="44" text-anchor="middle" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="600">📁 Photos (42)</text>
+
+    <!-- Work Docs Folder -->
+    <rect x="440" width="220" height="66" rx="33" fill="#0F1D30" stroke="#1E293B" stroke-width="1.5"/>
+    <text x="550" y="44" text-anchor="middle" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="600">📁 Work (18)</text>
+
+    <!-- Backups Folder -->
+    <rect x="680" width="220" height="66" rx="33" fill="#0F1D30" stroke="#1E293B" stroke-width="1.5"/>
+    <text x="790" y="44" text-anchor="middle" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="600">📁 Backup (7)</text>
+  </g>
+
+  <!-- Category Filter Pills -->
+  <g transform="translate(60, 540)">
+    <text x="20" y="32" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="700">ALL</text>
+    <rect x="0" y="46" width="60" height="4" rx="2" fill="#38BDF8"/>
+
+    <text x="120" y="32" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">IMAGES</text>
+    <text x="270" y="32" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">VIDEOS</text>
+    <text x="420" y="32" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">DOCUMENTS</text>
+    <text x="630" y="32" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">AUDIO</text>
+    <text x="770" y="32" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">ARCHIVES</text>
+  </g>
+
+  <!-- Multi-File Upload Queue Card (In Action) -->
+  <g transform="translate(60, 620)">
+    <rect width="960" height="150" rx="28" fill="#13233A" stroke="#0284C7" stroke-width="2"/>
+    <text x="40" y="55" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">Uploading 2 of 4 files (58%)</text>
+    <text x="40" y="90" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="22">nature_hike_raw.mp4 • 48.2 MB</text>
+    
+    <!-- Progress Bar -->
+    <rect x="40" y="110" width="880" height="16" rx="8" fill="#0B1320"/>
+    <rect x="40" y="110" width="510" height="16" rx="8" fill="url(#uploadBarGrad)"/>
+
+    <!-- Cancel Button -->
+    <circle cx="880" cy="65" r="24" fill="#1E293B"/>
+    <text x="880" y="73" text-anchor="middle" fill="#EF4444" font-family="-apple-system, Roboto, sans-serif" font-size="22" font-weight="bold">✕</text>
+  </g>
+
+  <!-- 2-Column Grid Layout of Files -->
+  <!-- Row 1 Left -->
+  <g transform="translate(60, 810)">
+    <rect width="460" height="380" rx="30" fill="url(#cardGradFiles)" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="30" y="30" width="400" height="200" rx="20" fill="#0284C7" fill-opacity="0.15"/>
+    <text x="230" y="150" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">🖼️</text>
+    <text x="30" y="275" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">mountain_lake.png</text>
+    <text x="30" y="315" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="22">4.8 MB • Image</text>
+    <text x="30" y="348" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="20" font-weight="600">Saved Messages</text>
+  </g>
+
+  <!-- Row 1 Right -->
+  <g transform="translate(560, 810)">
+    <rect width="460" height="380" rx="30" fill="url(#cardGradFiles)" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="30" y="30" width="400" height="200" rx="20" fill="#F97316" fill-opacity="0.15"/>
+    <text x="230" y="150" text-anchor="middle" fill="#FB923C" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">▶️</text>
+    <text x="30" y="275" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">product_intro.mp4</text>
+    <text x="30" y="315" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="22">84.1 MB • Video</text>
+    <text x="30" y="348" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="20" font-weight="600">Built-in Player</text>
+  </g>
+
+  <!-- Row 2 Left -->
+  <g transform="translate(60, 1230)">
+    <rect width="460" height="380" rx="30" fill="url(#cardGradFiles)" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="30" y="30" width="400" height="200" rx="20" fill="#38BDF8" fill-opacity="0.15"/>
+    <text x="230" y="150" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">📄</text>
+    <text x="30" y="275" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">annual_report.pdf</text>
+    <text x="30" y="315" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="22">6.2 MB • Document</text>
+    <text x="30" y="348" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="20" font-weight="600">Saved Messages</text>
+  </g>
+
+  <!-- Row 2 Right -->
+  <g transform="translate(560, 1230)">
+    <rect width="460" height="380" rx="30" fill="url(#cardGradFiles)" stroke="#1E293B" stroke-width="1.5"/>
+    <rect x="30" y="30" width="400" height="200" rx="20" fill="#A855F7" fill-opacity="0.15"/>
+    <text x="230" y="150" text-anchor="middle" fill="#C084FC" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">📦</text>
+    <text x="30" y="275" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">developer_kit.zip</text>
+    <text x="30" y="315" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="22">52.8 MB • Archive</text>
+    <text x="30" y="348" fill="#34D399" font-family="-apple-system, Roboto, sans-serif" font-size="20" font-weight="600">Saved Messages</text>
+  </g>
+
+  <!-- Bottom Navigation Bar -->
+  <g transform="translate(0, 2180)">
+    <rect width="1080" height="220" fill="#0B1320" stroke="#1E293B" stroke-width="1"/>
+    
+    <circle cx="180" cy="65" r="16" fill="#64748B"/>
+    <text x="180" y="145" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="500">Home</text>
+
+    <!-- Active Files Nav -->
+    <rect x="480" y="30" width="120" height="70" rx="35" fill="#0284C7" fill-opacity="0.25"/>
+    <circle cx="540" cy="65" r="16" fill="#38BDF8"/>
+    <text x="540" y="145" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="700">Files</text>
+
+    <circle cx="900" cy="65" r="16" fill="#64748B"/>
+    <text x="900" y="145" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="26" font-weight="500">Settings</text>
+    
+    <rect x="390" y="195" width="300" height="8" rx="4" fill="#475569"/>
+  </g>
+</svg>

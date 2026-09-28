@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 2400" width="1080" height="2400">
+  <defs>
+    <linearGradient id="authBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#050B14"/>
+      <stop offset="50%" stop-color="#0A182B"/>
+      <stop offset="100%" stop-color="#050B14"/>
+    </linearGradient>
+    <linearGradient id="cardGradAuth" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#112238"/>
+      <stop offset="100%" stop-color="#0D1B2D"/>
+    </linearGradient>
+    <linearGradient id="authBtnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1080" height="2400" fill="url(#authBg)" rx="72"/>
+
+  <!-- Status Bar -->
+  <text x="80" y="90" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="600">9:41</text>
+  <circle cx="940" cy="80" r="14" fill="#94A3B8"/>
+  <rect x="970" y="70" width="36" height="20" rx="6" fill="#94A3B8"/>
+
+  <!-- Shield Logo & Header -->
+  <g transform="translate(540, 260)">
+    <circle cx="0" cy="0" r="80" fill="#0284C7" fill-opacity="0.15" stroke="#0284C7" stroke-width="3"/>
+    <!-- Telegram Paper Plane -->
+    <path d="M -35 0 L 35 -30 L 15 35 L -2 8 L -15 20 Z" fill="#38BDF8"/>
+    <text x="0" y="140" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="800">Connect Telegram</text>
+    <text x="0" y="190" text-anchor="middle" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="28">Your personal files will be stored in Saved Messages</text>
+  </g>
+
+  <!-- Direct MTProto Security Badge -->
+  <g transform="translate(540, 560)">
+    <rect x="-380" y="-35" width="760" height="70" rx="35" fill="#132338" stroke="#1E3A5F" stroke-width="1.5"/>
+    <circle cx="-330" cy="0" r="10" fill="#22C55E"/>
+    <text x="0" y="8" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">Direct MTProto • No Intermediary Developer Servers</text>
+  </g>
+
+  <!-- Phone Input Card -->
+  <g transform="translate(70, 680)">
+    <rect width="940" height="420" rx="36" fill="url(#cardGradAuth)" stroke="#1E293B" stroke-width="2"/>
+    
+    <text x="50" y="65" fill="#CBD5E1" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="600">Phone Number</text>
+
+    <!-- Country Code & Phone Input Fields -->
+    <g transform="translate(50, 100)">
+      <!-- Country Code Selector -->
+      <rect width="240" height="110" rx="22" fill="#0A1524" stroke="#1E3A5F" stroke-width="2"/>
+      <text x="35" y="70" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="34">🇮🇳 +91</text>
+      <text x="180" y="70" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="24">▼</text>
+
+      <!-- Phone Number Field -->
+      <rect x="270" width="570" height="110" rx="22" fill="#0A1524" stroke="#0284C7" stroke-width="2.5"/>
+      <text x="310" y="70" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="36" font-weight="600">98765 43210</text>
+    </g>
+
+    <!-- Action Button: Send Code -->
+    <g transform="translate(50, 260)">
+      <rect width="840" height="110" rx="28" fill="url(#authBtnGrad)"/>
+      <text x="420" y="70" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="700">Send Login Code</text>
+    </g>
+  </g>
+
+  <!-- Step 2: Verification Flow Card Preview -->
+  <g transform="translate(70, 1160)">
+    <rect width="940" height="520" rx="36" fill="url(#cardGradAuth)" stroke="#1E293B" stroke-width="2"/>
+    
+    <!-- Service Notification Icon / Info -->
+    <rect x="50" y="45" width="80" height="80" rx="24" fill="#0284C7" fill-opacity="0.2"/>
+    <text x="90" y="95" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="36">💬</text>
+    <text x="160" y="85" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="32" font-weight="700">Official Telegram OTP</text>
+    <text x="160" y="120" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24">Delivered to your Telegram app (Service Notifications)</text>
+
+    <!-- OTP Code Inputs -->
+    <g transform="translate(50, 180)">
+      <rect x="0" width="130" height="130" rx="24" fill="#0A1524" stroke="#0284C7" stroke-width="2.5"/>
+      <text x="65" y="85" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">5</text>
+
+      <rect x="175" width="130" height="130" rx="24" fill="#0A1524" stroke="#0284C7" stroke-width="2.5"/>
+      <text x="240" y="85" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">8</text>
+
+      <rect x="350" width="130" height="130" rx="24" fill="#0A1524" stroke="#0284C7" stroke-width="2.5"/>
+      <text x="415" y="85" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">2</text>
+
+      <rect x="525" width="130" height="130" rx="24" fill="#0A1524" stroke="#0284C7" stroke-width="2.5"/>
+      <text x="590" y="85" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="52" font-weight="bold">9</text>
+
+      <rect x="700" width="130" height="130" rx="24" fill="#0A1524" stroke="#334155" stroke-width="2"/>
+      <text x="765" y="85" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="52">·</text>
+    </g>
+
+    <!-- 2FA Cloud Password Note -->
+    <g transform="translate(50, 360)">
+      <rect width="840" height="110" rx="24" fill="#0B1524" stroke="#1E293B" stroke-width="1.5"/>
+      <text x="40" y="55" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">🔐 Two-Step Verification (2FA) Supported</text>
+      <text x="40" y="88" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="20">If 2FA is active, your cloud password will be requested automatically</text>
+    </g>
+  </g>
+
+  <!-- Developer Transparency Note -->
+  <text x="540" y="2220" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="28">Kawach Cloud v1.0.0-alpha01 • Built by Aravind(guru)</text>
+  <rect x="390" y="2350" width="300" height="10" rx="5" fill="#475569"/>
+</svg>
