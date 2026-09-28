@@ -1,6 +1,6 @@
 {
   "name": "Kawach Cloud",
-  "description": "Personal cloud storage for Android, powered by Telegram Saved Messages.",
+  "description": "Unlimited personal cloud storage for Android, powered by Telegram Saved Messages.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

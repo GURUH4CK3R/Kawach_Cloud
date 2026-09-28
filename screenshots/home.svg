@@ -48,11 +48,11 @@
     
     <!-- Title & Cloud Icon -->
     <text x="50" y="70" fill="#E2E8F0" font-family="-apple-system, Roboto, sans-serif" font-size="34" font-weight="700">Storage Overview</text>
-    <text x="50" y="110" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24">Telegram Saved Messages Backend</text>
+    <text x="50" y="110" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="24" font-weight="600">Unlimited Telegram Cloud Storage</text>
     
     <!-- Big Storage Number -->
-    <text x="50" y="210" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="68" font-weight="800">14.8 GB</text>
-    <text x="320" y="210" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="500">/ 128 Indexed Files</text>
+    <text x="50" y="210" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="68" font-weight="800">14.8 GB Used</text>
+    <text x="490" y="210" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="500">/ Unlimited</text>
 
     <!-- Progress Bar Track -->
     <rect x="50" y="250" width="860" height="24" rx="12" fill="#0F172A"/>
