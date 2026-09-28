@@ -1,28 +1,64 @@
 # Security Policy
 
+The security and privacy of **Kawach Cloud** users are top priorities. As an open-source project interacting directly with Telegram's MTProto API, we adhere to strict security best practices and responsible disclosure guidelines.
+
+---
+
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
+| Version | Release Status | Supported |
+| :--- | :--- | :--- |
+| `1.0.0-alpha01` (Build 1) | Alpha | :white_check_mark: |
+| `< 1.0.0` | Pre-alpha | :x: |
 
-## Reporting a Vulnerability
+---
 
-Kawach Cloud treats user data security and privacy with top priority:
+## Reporting a Security Vulnerability
 
-- Kawach Cloud connects directly to Telegram servers using official MTProto / TDLib protocols.
-- User files are stored strictly inside the authenticated user's own Telegram Saved Messages.
-- Sessions and cached tokens are never transmitted to third-party tracking or developer servers.
-- Plaintext Telegram passwords and OTP codes are never permanently stored on device.
+If you identify a security issue, vulnerability, or sensitive credential exposure in Kawach Cloud, please **do NOT report it in public GitHub issues or discussions**.
 
-If you discover a security vulnerability within Kawach Cloud, please do **NOT** open a public issue. Instead, report it privately to:
+Instead, report it responsibly via private email:
 
-**Developer:** Aravind(guru)  
-**Email:** `darkwebaccess404@gmail.com`
+- **Primary Contact:** Aravind(guru)
+- **Security Email:** `darkwebaccess404@gmail.com`
+- **Subject Line:** `[SECURITY] Kawach Cloud Vulnerability Report`
 
-Please include:
-- Description of the vulnerability
-- Proof of concept or reproduction steps
-- Assessment of potential impact
+### What to Include in Your Report
+1. Detailed description of the vulnerability.
+2. Step-by-step reproduction instructions or a minimal Proof of Concept (PoC).
+3. Potential severity and impact assessment.
+4. Suggested remediation or patch (if available).
 
-We will review reports within 48 hours and work with you on a coordinated disclosure and patch release.
+### Response Timeline
+- **Initial Acknowledgment:** Within **48 hours**.
+- **Assessment & Triage:** Within **5 business days**.
+- **Coordinated Disclosure:** We work closely with reporters to test fixes and prepare security advisories before public release.
+
+---
+
+## Technical Security Architecture & Assurances
+
+### 1. Direct Client-to-Telegram Communication
+- Kawach Cloud connects directly to official Telegram datacenters using **TDLib (Telegram Database Library)** and the MTProto protocol over TLS.
+- There are **no intermediary proxy servers**, developer-controlled relay nodes, or external storage buckets.
+
+### 2. Ephemeral Authentication Data
+- Telegram account passwords (2FA) and One-Time Passwords (OTP) reside solely in transient RAM during the authentication handshake.
+- Neither passwords nor OTPs are written to disk, shared preferences, SQLite/Room, or Android system logs.
+
+### 3. Local Data Isolation
+- Local metadata and TDLib session states are saved strictly in the Android application's protected private directory (`context.filesDir` / `context.getDatabasePath`), protected by Linux user-level file permissions on Android.
+- No world-readable storage permissions are requested.
+
+### 4. Honest Cryptographic Scope
+- **Storage Model:** Files in Telegram Saved Messages are encrypted in transit and stored encrypted on Telegram's cloud storage infrastructure under standard Telegram cloud chat terms.
+- **Scope Limitation:** Stored files are **not** end-to-end encrypted via Telegram Secret Chats. Telegram datacenters hold keys necessary to deliver cloud messages across devices. Client-side envelope encryption is tracked as a planned improvement.
+
+---
+
+## Contributor Security Guidelines
+
+When submitting code or forks:
+- Never commit `.env` files, production API IDs, API hashes, or test phone numbers.
+- Never commit `debug.keystore`, release signing keys, or `*.jks` files.
+- Always use Android `FileProvider` with restrictive `content://` URIs instead of exposing raw `file://` paths.

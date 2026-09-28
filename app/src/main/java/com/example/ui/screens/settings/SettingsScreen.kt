@@ -327,7 +327,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Version 1.0.0-alpha01",
+                                text = "Version ${com.example.BuildConfig.VERSION_NAME} (Build ${com.example.BuildConfig.VERSION_CODE})",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = KawachPrimary
                             )
