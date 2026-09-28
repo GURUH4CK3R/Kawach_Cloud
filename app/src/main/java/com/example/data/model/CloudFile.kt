@@ -30,7 +30,8 @@ data class CloudFile(
     val isUploading: Boolean = false,
     val uploadProgress: Float = 0f,
     val isDownloaded: Boolean = false,
-    val kawachTag: String = ""
+    val kawachTag: String = "",
+    val thumbnailPath: String? = null
 ) {
     val formattedSize: String
         get() = formatFileSize(size)
@@ -56,7 +57,7 @@ data class CloudFile(
         }
 
     val hasLocalFile: Boolean
-        get() = !localPath.isNullOrBlank() && File(localPath).exists()
+        get() = isDownloaded || (!localPath.isNullOrBlank() && (localPath.startsWith("content://") || File(localPath).exists()))
 
     companion object {
         fun formatFileSize(bytes: Long): String {

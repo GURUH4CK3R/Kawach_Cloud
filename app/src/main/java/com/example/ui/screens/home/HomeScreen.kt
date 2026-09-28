@@ -59,7 +59,6 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.CloudFile
 import com.example.data.model.FileCategory
 import com.example.data.model.TelegramAuthState
-import com.example.ui.components.ConnectionCard
 import com.example.ui.components.DeleteConfirmationDialog
 import com.example.ui.components.EmptyState
 import com.example.ui.components.FileCard
@@ -171,16 +170,6 @@ fun HomeScreen(
                 }
             }
 
-            // Telegram Connection Status Card
-            item {
-                ConnectionCard(
-                    authState = authState,
-                    onConnectClick = onConnectTelegram,
-                    onDisconnectClick = { viewModel.logout() },
-                    modifier = Modifier.padding(bottom = 20.dp)
-                )
-            }
-
             // Big Upload File Glass Button
             item {
                 GlassButton(
@@ -220,7 +209,7 @@ fun HomeScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Saved Messages Storage",
+                                    text = "Total Cloud Storage",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -302,8 +291,8 @@ fun HomeScreen(
                     EmptyState(
                         icon = Icons.Default.CloudUpload,
                         title = "No files yet",
-                        description = "Files uploaded to Kawach Cloud are stored directly in your Telegram Saved Messages.",
-                        actionButtonText = if (authState is TelegramAuthState.Authenticated) "Upload File" else "Connect Telegram",
+                        description = "Upload files to Kawach Cloud to safely store, organize, and access them anytime.",
+                        actionButtonText = if (authState is TelegramAuthState.Authenticated) "Upload File" else "Connect Cloud",
                         onActionClick = {
                             if (authState is TelegramAuthState.Authenticated) {
                                 filePickerLauncher.launch("*/*")

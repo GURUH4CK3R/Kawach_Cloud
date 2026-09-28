@@ -76,6 +76,14 @@ fun KawachNavigation(
         }
     }
 
+    // Auto-navigate to login when session is disconnected
+    LaunchedEffect(authState) {
+        if (authState !is TelegramAuthState.Authenticated && rootScreen == RootScreen.MAIN) {
+            rootScreen = RootScreen.CONNECT_TELEGRAM
+            currentDestination = AppDestination.HOME
+        }
+    }
+
     when (rootScreen) {
         RootScreen.SPLASH -> {
             SplashScreen(

@@ -146,8 +146,8 @@ fun SettingsScreen(
                 }
             }
 
-            // Section: Account
-            SectionHeader(title = "ACCOUNT")
+            // Section: Telegram Account
+            SectionHeader(title = "TELEGRAM ACCOUNT")
 
             GlassCard(
                 modifier = Modifier
@@ -160,59 +160,98 @@ fun SettingsScreen(
                             val user = state.user
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(CircleShape)
-                                        .background(KawachSuccess.copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = KawachSuccess,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column {
                                     Text(
-                                        text = user.displayName,
+                                        text = "Telegram Storage",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    if (user.username.isNotEmpty()) {
-                                        Text(
-                                            text = "@${user.username}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = KawachPrimary
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(KawachSuccess)
                                         )
-                                    }
-                                    if (user.phoneNumber.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = user.phoneNumber,
+                                            text = "Connected • Saved Messages",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = KawachSuccess,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 }
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = KawachSuccess.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "Connected",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = KawachSuccess,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = "All Kawach Cloud files are stored directly in your personal Telegram Saved Messages. Each user has full privacy and account isolation.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(12.dp)
-                                )
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(KawachPrimary.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = user.firstName.take(1).uppercase().ifBlank { "T" },
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 20.sp,
+                                            color = KawachPrimary
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        val fullName = "${user.firstName} ${user.lastName}".trim()
+                                        Text(
+                                            text = fullName.ifBlank { "Telegram User" },
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (user.username.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "@${user.username}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = KawachPrimary,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        if (user.phoneNumber.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = user.phoneNumber,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -227,7 +266,7 @@ fun SettingsScreen(
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Disconnect Telegram")
+                                Text("Disconnect Telegram", fontWeight = FontWeight.SemiBold)
                             }
                         }
 
@@ -336,7 +375,7 @@ fun SettingsScreen(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Disconnect Telegram?", fontWeight = FontWeight.Bold) },
             text = {
-                Text("This will securely close your active Telegram session on this device. Your files will remain safely stored in your Telegram Saved Messages.")
+                Text("Your Telegram account will be disconnected from Kawach Cloud. Your files will remain in your Telegram Saved Messages.")
             },
             confirmButton = {
                 Button(

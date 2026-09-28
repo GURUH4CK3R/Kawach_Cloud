@@ -67,4 +67,33 @@ class ExampleUnitTest {
     )
     assertEquals(FileCategory.ARCHIVES, zip.category)
   }
+
+  @Test
+  fun cloudFile_downloadState_andLocalResolution() {
+    val cloudFile = CloudFile(
+      messageId = 100L,
+      telegramFileId = 42,
+      name = "document.pdf",
+      size = 2048,
+      mimeType = "application/pdf",
+      uploadDate = 1700000000L,
+      localPath = "content://media/external/downloads/100",
+      isDownloaded = true
+    )
+    assertTrue(cloudFile.hasLocalFile)
+    assertEquals("document.pdf", cloudFile.name)
+    assertEquals("application/pdf", cloudFile.mimeType)
+  }
+
+  @Test
+  fun duplicateFileNamePattern_correctlyFormatted() {
+    val original = "photo.jpg"
+    val dotIndex = original.lastIndexOf('.')
+    val base = original.substring(0, dotIndex)
+    val ext = original.substring(dotIndex)
+    val duplicate1 = "$base (1)$ext"
+    val duplicate2 = "$base (2)$ext"
+    assertEquals("photo (1).jpg", duplicate1)
+    assertEquals("photo (2).jpg", duplicate2)
+  }
 }

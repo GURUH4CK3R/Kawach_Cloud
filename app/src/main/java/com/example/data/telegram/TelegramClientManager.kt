@@ -559,28 +559,26 @@ class TelegramClientManager(
 
     suspend fun downloadFile(
         telegramFileId: Int,
-        targetFile: File,
         onProgress: (Float) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
         val downloadFunction = TdApi.DownloadFile(telegramFileId, 1, 0, 0, false)
 
         val downloadedFile = suspendCancellableCoroutine<Result<File>> { continuation ->
+            continuation.invokeOnCancellation {
+                progressListeners.remove(telegramFileId)
+                client?.send(TdApi.CancelDownloadFile(telegramFileId, false)) {}
+            }
+
             progressListeners[telegramFileId] = { progress, isCompleted, downloadedPath ->
                 onProgress(progress)
                 if (isCompleted && continuation.isActive) {
                     progressListeners.remove(telegramFileId)
                     if (downloadedPath != null) {
-                        try {
-                            val src = File(downloadedPath)
-                            if (src.exists()) {
-                                targetFile.parentFile?.mkdirs()
-                                src.copyTo(targetFile, overwrite = true)
-                                continuation.resume(Result.success(targetFile))
-                            } else {
-                                continuation.resume(Result.failure(Exception("Downloaded source file not found")))
-                            }
-                        } catch (e: Exception) {
-                            continuation.resume(Result.failure(e))
+                        val src = File(downloadedPath)
+                        if (src.exists() && src.length() > 0) {
+                            continuation.resume(Result.success(src))
+                        } else {
+                            continuation.resume(Result.failure(Exception("Downloaded source file not found or is empty")))
                         }
                     } else {
                         continuation.resume(Result.failure(Exception("Downloaded path is null")))
@@ -589,14 +587,41 @@ class TelegramClientManager(
             }
 
             client?.send(downloadFunction) { result ->
-                if (result is TdApi.Error && continuation.isActive) {
+                if (!continuation.isActive) return@send
+                if (result is TdApi.Error) {
                     progressListeners.remove(telegramFileId)
                     continuation.resume(Result.failure(Exception("Download error: ${result.message}")))
+                } else if (result is TdApi.File) {
+                    val local = result.local
+                    if (local?.isDownloadingCompleted == true && !local.path.isNullOrBlank()) {
+                        val src = File(local.path)
+                        if (src.exists() && src.length() > 0) {
+                            progressListeners.remove(telegramFileId)
+                            onProgress(1f)
+                            continuation.resume(Result.success(src))
+                        }
+                    }
                 }
             }
         }
 
         downloadedFile
+    }
+
+    suspend fun downloadFile(
+        telegramFileId: Int,
+        targetFile: File,
+        onProgress: (Float) -> Unit
+    ): Result<File> = withContext(Dispatchers.IO) {
+        val result = downloadFile(telegramFileId, onProgress)
+        if (result.isSuccess) {
+            val src = result.getOrThrow()
+            targetFile.parentFile?.mkdirs()
+            src.copyTo(targetFile, overwrite = true)
+            Result.success(targetFile)
+        } else {
+            Result.failure(result.exceptionOrNull() ?: Exception("Download failed"))
+        }
     }
 
     suspend fun deleteFile(messageId: Long): Result<Unit> = withContext(Dispatchers.IO) {
@@ -666,6 +691,7 @@ class TelegramClientManager(
         val size = doc.document?.size ?: 0L
         val localPath = doc.document?.local?.path
         val isDownloaded = doc.document?.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank() && File(localPath).exists()
+        val thumbPath = doc.thumbnail?.file?.local?.path?.takeIf { !it.isNullOrBlank() && File(it).exists() }
 
         return CloudFile(
             messageId = message.id,
@@ -678,7 +704,8 @@ class TelegramClientManager(
             folderId = folderId,
             localPath = localPath,
             isDownloaded = isDownloaded,
-            kawachTag = captionText
+            kawachTag = captionText,
+            thumbnailPath = thumbPath
         )
     }
 

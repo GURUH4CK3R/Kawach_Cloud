@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.AlertDialog
@@ -55,11 +57,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.CloudFile
 import com.example.data.model.CloudFolder
 import com.example.data.model.FileCategory
@@ -93,6 +98,59 @@ fun getCategoryColor(category: FileCategory): Color {
 }
 
 @Composable
+fun FileThumbnail(
+    file: CloudFile,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    val catColor = getCategoryColor(file.category)
+    val catIcon = getCategoryIcon(file.category)
+    val thumbModel = file.thumbnailPath ?: if (file.category == FileCategory.IMAGES && file.hasLocalFile) file.localPath else null
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(12.dp))
+            .background(catColor.copy(alpha = 0.15f)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!thumbModel.isNullOrBlank()) {
+            AsyncImage(
+                model = thumbModel,
+                contentDescription = file.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+            )
+            if (file.category == FileCategory.VIDEOS) {
+                Box(
+                    modifier = Modifier
+                        .size((size.value * 0.45f).dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size((size.value * 0.32f).dp)
+                    )
+                }
+            }
+        } else {
+            Icon(
+                imageVector = catIcon,
+                contentDescription = null,
+                tint = catColor,
+                modifier = Modifier.size((size.value * 0.52f).dp)
+            )
+        }
+    }
+}
+
+@Composable
 fun FileCard(
     file: CloudFile,
     isGrid: Boolean = false,
@@ -106,8 +164,6 @@ fun FileCard(
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val catColor = getCategoryColor(file.category)
-    val catIcon = getCategoryIcon(file.category)
 
     if (isGrid) {
         GlassCard(
@@ -123,20 +179,10 @@ fun FileCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(catColor.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = catIcon,
-                            contentDescription = null,
-                            tint = catColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    FileThumbnail(
+                        file = file,
+                        size = 40.dp
+                    )
 
                     Box {
                         IconButton(
@@ -188,12 +234,21 @@ fun FileCard(
                     )
 
                     if (file.isDownloading) {
-                        CircularProgressIndicator(
-                            progress = { file.downloadProgress },
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = KawachPrimary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                progress = { file.downloadProgress },
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = KawachPrimary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${(file.downloadProgress * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = KawachPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     } else if (file.hasLocalFile) {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
@@ -219,20 +274,10 @@ fun FileCard(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(catColor.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = catIcon,
-                        contentDescription = null,
-                        tint = catColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                FileThumbnail(
+                    file = file,
+                    size = 46.dp
+                )
 
                 Spacer(modifier = Modifier.width(14.dp))
 
@@ -265,12 +310,24 @@ fun FileCard(
                 }
 
                 if (file.isDownloading) {
-                    CircularProgressIndicator(
-                        progress = { file.downloadProgress },
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = KawachPrimary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            progress = { file.downloadProgress },
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = KawachPrimary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${(file.downloadProgress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = KawachPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 } else if (file.hasLocalFile) {
                     IconButton(
                         onClick = onOpen,
@@ -399,21 +456,8 @@ fun FileDetailsDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(getCategoryColor(file.category).copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = getCategoryIcon(file.category),
-                        contentDescription = null,
-                        tint = getCategoryColor(file.category),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
+                FileThumbnail(file = file, size = 40.dp)
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = "File Details",
                     style = MaterialTheme.typography.titleMedium,

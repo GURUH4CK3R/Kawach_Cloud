@@ -3,6 +3,7 @@ package com.example.data.telegram
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.content.FileProvider
 import com.example.data.local.dao.FileDao
 import com.example.data.local.dao.FolderDao
 import com.example.data.local.entity.FileEntity
@@ -10,6 +11,8 @@ import com.example.data.local.entity.FolderEntity
 import com.example.data.model.CloudFile
 import com.example.data.model.CloudFolder
 import com.example.data.model.TelegramAuthState
+import com.example.util.DownloadStorageManager
+import com.example.util.SavedDownloadResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -194,23 +197,51 @@ class TelegramRepository(
     suspend fun downloadFile(
         file: CloudFile,
         onProgress: (Float) -> Unit = {}
-    ): Result<File> = withContext(Dispatchers.IO) {
-        val downloadsDir = File(context.getExternalFilesDir(null), "KawachDownloads")
-        if (!downloadsDir.exists()) downloadsDir.mkdirs()
-
-        val targetFile = File(downloadsDir, file.name)
-        if (targetFile.exists() && targetFile.length() == file.size && file.size > 0) {
-            fileDao.updateFileLocalPath(file.messageId, targetFile.absolutePath, true)
-            return@withContext Result.success(targetFile)
+    ): Result<SavedDownloadResult> = withContext(Dispatchers.IO) {
+        // If file is already locally available and verified in Downloads/cache, return directly
+        if (file.hasLocalFile && !file.localPath.isNullOrBlank()) {
+            val local = file.localPath
+            if (local.startsWith("content://")) {
+                val uri = Uri.parse(local)
+                try {
+                    val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
+                    if (descriptor != null && descriptor.statSize > 0) {
+                        descriptor.close()
+                        return@withContext Result.success(
+                            SavedDownloadResult(
+                                uri = uri,
+                                finalFileName = file.name,
+                                mimeType = file.mimeType,
+                                size = file.size,
+                                localPath = local
+                            )
+                        )
+                    }
+                } catch (_: Exception) {}
+            } else {
+                val f = File(local)
+                if (f.exists() && f.length() > 0) {
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
+                    return@withContext Result.success(
+                        SavedDownloadResult(
+                            uri = uri,
+                            finalFileName = file.name,
+                            mimeType = file.mimeType,
+                            size = f.length(),
+                            localPath = f.absolutePath
+                        )
+                    )
+                }
+            }
         }
 
         // Mark downloading in active transfers
         val downloadingFile = file.copy(isDownloading = true, downloadProgress = 0.05f)
         activeTransfers.value = activeTransfers.value + (file.messageId to downloadingFile)
 
+        // 1. Download completed source file from TDLib
         val result = clientManager.downloadFile(
             telegramFileId = file.telegramFileId,
-            targetFile = targetFile,
             onProgress = { progress ->
                 onProgress(progress)
                 val updated = downloadingFile.copy(
@@ -223,11 +254,33 @@ class TelegramRepository(
 
         activeTransfers.value = activeTransfers.value - file.messageId
 
-        if (result.isSuccess) {
-            fileDao.updateFileLocalPath(file.messageId, targetFile.absolutePath, true)
-            Result.success(targetFile)
-        } else {
-            Result.failure(result.exceptionOrNull() ?: Exception("Download failed"))
+        if (result.isFailure) {
+            return@withContext Result.failure(result.exceptionOrNull() ?: Exception("Download from Telegram failed"))
+        }
+
+        val downloadedSource = result.getOrThrow()
+
+        // 2. Verify source file exists and is not empty
+        if (!downloadedSource.exists() || downloadedSource.length() <= 0) {
+            return@withContext Result.failure(Exception("Telegram download source file is empty or missing"))
+        }
+
+        // 3. Save into Android's public Downloads directory safely
+        try {
+            val saved = DownloadStorageManager.saveToPublicDownloads(
+                context = context,
+                sourceFile = downloadedSource,
+                desiredFileName = file.name,
+                mimeType = file.mimeType
+            )
+
+            // 4. Update Room database with final local path / URI and mark downloaded
+            val pathToStore = saved.localPath ?: saved.uri.toString()
+            fileDao.updateFileLocalPath(file.messageId, pathToStore, true)
+
+            Result.success(saved)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

@@ -25,7 +25,8 @@ data class FileEntity(
     val folderId: String = "root",
     val localPath: String? = null,
     val isDownloaded: Boolean = false,
-    val kawachSignature: String = ""
+    val kawachSignature: String = "",
+    val thumbnailPath: String? = null
 ) {
     fun toCloudFile(): CloudFile {
         return CloudFile(
@@ -39,7 +40,8 @@ data class FileEntity(
             folderId = folderId,
             localPath = localPath,
             isDownloaded = isDownloaded,
-            kawachTag = kawachSignature
+            kawachTag = kawachSignature,
+            thumbnailPath = thumbnailPath
         )
     }
 
@@ -57,7 +59,8 @@ data class FileEntity(
                 folderId = file.folderId,
                 localPath = file.localPath,
                 isDownloaded = file.isDownloaded,
-                kawachSignature = file.kawachTag
+                kawachSignature = file.kawachTag,
+                thumbnailPath = file.thumbnailPath
             )
         }
     }

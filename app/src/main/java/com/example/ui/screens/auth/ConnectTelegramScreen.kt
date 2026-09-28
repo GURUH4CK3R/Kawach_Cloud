@@ -24,7 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Key
@@ -410,7 +410,7 @@ fun ConnectTelegramScreen(
                                 onClick = { viewModel.resetAuthState() },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Wrong number? Change Phone Number")
                             }
@@ -515,7 +515,7 @@ fun ConnectTelegramScreen(
                                 onClick = { viewModel.resetAuthState() },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Back to Phone Number")
                             }

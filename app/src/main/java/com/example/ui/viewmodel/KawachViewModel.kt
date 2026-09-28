@@ -1,5 +1,6 @@
 package com.example.ui.viewmodel
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -332,14 +333,14 @@ class KawachViewModel(
         }
     }
 
-    fun downloadFile(file: CloudFile, onReady: ((File) -> Unit)? = null) {
+    fun downloadFile(file: CloudFile, onReady: ((Uri) -> Unit)? = null) {
         viewModelScope.launch {
             emitMessage("Downloading ${file.name}...")
             val result = repository.downloadFile(file)
             if (result.isSuccess) {
                 val downloaded = result.getOrThrow()
-                emitMessage("Download completed: ${file.name}")
-                onReady?.invoke(downloaded)
+                emitMessage("Download complete: ${downloaded.finalFileName}")
+                onReady?.invoke(downloaded.uri)
             } else {
                 emitMessage(result.exceptionOrNull()?.message ?: "Download failed")
             }
@@ -348,49 +349,69 @@ class KawachViewModel(
 
     fun openFile(context: Context, file: CloudFile) {
         if (!file.hasLocalFile) {
-            downloadFile(file) { downloadedFile ->
-                launchViewIntent(context, downloadedFile, file.mimeType)
+            downloadFile(file) { uri ->
+                launchViewIntent(context, uri, file.mimeType)
             }
         } else {
-            launchViewIntent(context, File(file.localPath!!), file.mimeType)
+            val uri = resolveFileUri(context, file)
+            if (uri != null) {
+                launchViewIntent(context, uri, file.mimeType)
+            } else {
+                downloadFile(file) { newUri ->
+                    launchViewIntent(context, newUri, file.mimeType)
+                }
+            }
         }
     }
 
     fun shareFile(context: Context, file: CloudFile) {
         if (!file.hasLocalFile) {
-            downloadFile(file) { downloadedFile ->
-                launchShareIntent(context, downloadedFile, file.mimeType)
+            downloadFile(file) { uri ->
+                launchShareIntent(context, uri, file.mimeType)
             }
         } else {
-            launchShareIntent(context, File(file.localPath!!), file.mimeType)
+            val uri = resolveFileUri(context, file)
+            if (uri != null) {
+                launchShareIntent(context, uri, file.mimeType)
+            } else {
+                downloadFile(file) { newUri ->
+                    launchShareIntent(context, newUri, file.mimeType)
+                }
+            }
         }
     }
 
-    private fun launchViewIntent(context: Context, targetFile: File, mimeType: String) {
+    private fun resolveFileUri(context: Context, file: CloudFile): Uri? {
+        val path = file.localPath ?: return null
+        return if (path.startsWith("content://")) {
+            Uri.parse(path)
+        } else {
+            val f = File(path)
+            if (f.exists()) {
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
+            } else {
+                null
+            }
+        }
+    }
+
+    private fun launchViewIntent(context: Context, uri: Uri, mimeType: String) {
         try {
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                targetFile
-            )
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, mimeType.ifBlank { "*/*" })
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(Intent.createChooser(intent, "Open with"))
+        } catch (_: ActivityNotFoundException) {
+            emitMessage("No compatible app found to open this file")
         } catch (e: Exception) {
-            emitMessage("No application found to open this file type")
+            emitMessage("Could not open file: ${e.message}")
         }
     }
 
-    private fun launchShareIntent(context: Context, targetFile: File, mimeType: String) {
+    private fun launchShareIntent(context: Context, uri: Uri, mimeType: String) {
         try {
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                targetFile
-            )
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = mimeType.ifBlank { "*/*" }
                 putExtra(Intent.EXTRA_STREAM, uri)
@@ -398,6 +419,8 @@ class KawachViewModel(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(Intent.createChooser(intent, "Share file"))
+        } catch (_: ActivityNotFoundException) {
+            emitMessage("No compatible app found to share this file")
         } catch (e: Exception) {
             emitMessage("Could not share file")
         }
