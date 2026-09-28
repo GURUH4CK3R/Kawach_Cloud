@@ -16,6 +16,10 @@
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep TDLib JNI classes and methods
+-keep class org.drinkless.tdlib.** { *; }
+-keepclassmembers class org.drinkless.tdlib.** { *; }
+-keep class io.github.tdlibandroid.** { *; }
+-keepclassmembers class io.github.tdlibandroid.** { *; }
+-dontwarn org.drinkless.tdlib.**
+-dontwarn io.github.tdlibandroid.**

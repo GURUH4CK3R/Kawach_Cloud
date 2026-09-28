@@ -24,6 +24,13 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 
+import android.os.Build
+import android.util.Log
+import com.example.BuildConfig
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
+
 class TelegramClientManager(
     private val context: Context,
     private val preferenceManager: PreferenceManager = PreferenceManager(context)
@@ -43,6 +50,7 @@ class TelegramClientManager(
 
     private var currentUserId: Long = 0L
     private var savedMessagesChatId: Long = 0L
+    private var pendingPhoneNumber: String = ""
 
     // Progress listeners: fileId -> (progress: Float, isCompleted: Boolean, path: String?)
     private val progressListeners = ConcurrentHashMap<Int, (Float, Boolean, String?) -> Unit>()
@@ -92,15 +100,6 @@ class TelegramClientManager(
     }
 
     init {
-        // Automatically ensure official built-in Telegram client credentials (api_id = 6)
-        val currentSavedId = preferenceManager.getSyncApiId()
-        if (currentSavedId == "94575" || currentSavedId.isBlank() || currentSavedId == "0") {
-            preferenceManager.saveSyncApiCredentials("6", "eb06d4abfb49dc3eeb1aeb98ae0f581e")
-            try {
-                databaseDir.deleteRecursively()
-                databaseDir.mkdirs()
-            } catch (e: Exception) {}
-        }
         initClient()
     }
 
@@ -148,6 +147,21 @@ class TelegramClientManager(
     }
 
     private fun handleAuthorizationState(state: TdApi.AuthorizationState) {
+        if (BuildConfig.DEBUG) {
+            val stateName = when (state) {
+                is TdApi.AuthorizationStateWaitTdlibParameters -> "WAIT_TDLIB_PARAMETERS"
+                is TdApi.AuthorizationStateWaitPhoneNumber -> "WAIT_PHONE_NUMBER"
+                is TdApi.AuthorizationStateWaitCode -> "WAIT_CODE"
+                is TdApi.AuthorizationStateWaitPassword -> "WAIT_PASSWORD"
+                is TdApi.AuthorizationStateReady -> "READY"
+                is TdApi.AuthorizationStateLoggingOut -> "LOGGING_OUT"
+                is TdApi.AuthorizationStateClosing -> "CLOSING"
+                is TdApi.AuthorizationStateClosed -> "CLOSED"
+                else -> state.javaClass.simpleName
+            }
+            Log.d("KawachAuth", "AUTH STATE: $stateName")
+        }
+
         when (state) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> {
                 val params = TdApi.SetTdlibParameters()
@@ -162,15 +176,16 @@ class TelegramClientManager(
                 params.apiId = getEffectiveApiId()
                 params.apiHash = getEffectiveApiHash()
                 params.systemLanguageCode = TelegramConstants.SYSTEM_LANGUAGE
-                params.deviceModel = TelegramConstants.DEVICE_MODEL
+                params.deviceModel = Build.MODEL.ifBlank { "Android" }
+                params.systemVersion = Build.VERSION.RELEASE.ifBlank { "14.0" }
                 params.applicationVersion = TelegramConstants.APPLICATION_VERSION
 
                 send(params) { result ->
                     if (result is TdApi.Error) {
                         val msg = if (result.message.contains("API_ID_INVALID", ignoreCase = true)) {
-                            "API_ID_INVALID: Please configure your Telegram API ID & Hash from my.telegram.org"
+                            "Unable to connect to Telegram network. Please check your internet connection and try again."
                         } else {
-                            "Parameters error: ${result.message}"
+                            "Connection error: ${result.message}"
                         }
                         _authState.value = TelegramAuthState.Error(msg)
                     }
@@ -181,13 +196,16 @@ class TelegramClientManager(
             }
             is TdApi.AuthorizationStateWaitCode -> {
                 val info = state.codeInfo
-                val deliveryType = info?.type?.javaClass?.simpleName?.replace("AuthenticationCodeType", "") ?: "Telegram"
+                val (deliveryType, deliveryDesc) = parseCodeInfo(info)
                 val timeout = info?.timeout ?: 60
-                val phone = (_authState.value as? TelegramAuthState.WaitingCode)?.phoneNumber ?: ""
+                val phone = if (pendingPhoneNumber.isNotBlank()) pendingPhoneNumber else {
+                    (_authState.value as? TelegramAuthState.WaitingCode)?.phoneNumber ?: ""
+                }
                 _authState.value = TelegramAuthState.WaitingCode(
                     phoneNumber = phone,
                     timeout = timeout,
-                    deliveryType = deliveryType
+                    deliveryType = deliveryType,
+                    deliveryDescription = deliveryDesc
                 )
             }
             is TdApi.AuthorizationStateWaitPassword -> {
@@ -204,9 +222,60 @@ class TelegramClientManager(
             is TdApi.AuthorizationStateLoggingOut -> {
                 _authState.value = TelegramAuthState.LoggingOut
             }
+            is TdApi.AuthorizationStateClosing -> {
+                // TDLib is closing
+            }
             is TdApi.AuthorizationStateClosed -> {
                 client = null
-                _authState.value = TelegramAuthState.WaitingPhoneNumber
+                _authState.value = TelegramAuthState.Closed
+            }
+        }
+    }
+
+    private fun parseCodeInfo(info: TdApi.AuthenticationCodeInfo?): Pair<String, String> {
+        if (info == null) return Pair("Telegram", "A login code was sent to your active Telegram session or via SMS.")
+        return when (info.type) {
+            is TdApi.AuthenticationCodeTypeTelegramMessage -> {
+                Pair(
+                    "Telegram App",
+                    "We sent the login code to your active Telegram app. Check the chat from 'Telegram' (Service Notifications) on your other phone or Telegram session."
+                )
+            }
+            is TdApi.AuthenticationCodeTypeSms -> {
+                Pair(
+                    "SMS",
+                    "We sent the login code via SMS to your mobile number."
+                )
+            }
+            is TdApi.AuthenticationCodeTypeCall -> {
+                Pair(
+                    "Phone Call",
+                    "Telegram is calling your phone number to dictate your login code."
+                )
+            }
+            is TdApi.AuthenticationCodeTypeFlashCall -> {
+                Pair(
+                    "Flash Call",
+                    "Telegram is verifying your number via flash call."
+                )
+            }
+            is TdApi.AuthenticationCodeTypeMissedCall -> {
+                Pair(
+                    "Missed Call",
+                    "Enter the last digits of the incoming phone number that just called you."
+                )
+            }
+            is TdApi.AuthenticationCodeTypeFragment -> {
+                Pair(
+                    "Fragment",
+                    "Your login code was delivered via Fragment."
+                )
+            }
+            else -> {
+                Pair(
+                    "Telegram",
+                    "A login code was sent to your Telegram account."
+                )
             }
         }
     }
@@ -268,32 +337,78 @@ class TelegramClientManager(
     }
 
     suspend fun sendPhoneNumber(fullPhoneNumber: String): Result<Unit> {
+        val cleanPhone = fullPhoneNumber.replace(Regex("[^0-9+]"), "").trim()
+        if (cleanPhone.length < 8) {
+            val err = "Please enter a valid international phone number with country code"
+            _authState.value = TelegramAuthState.Error(err)
+            return Result.failure(Exception(err))
+        }
+
+        if (client == null) {
+            initClient()
+            delay(1000)
+        }
+
+        pendingPhoneNumber = cleanPhone
         _authState.value = TelegramAuthState.SendingPhoneNumber
-        val cleanPhone = fullPhoneNumber.replace(Regex("[^0-9+]"), "")
-        val result = sendAsync(TdApi.SetAuthenticationPhoneNumber(cleanPhone, null))
-        return if (result.isSuccess) {
-            _authState.value = TelegramAuthState.WaitingCode(cleanPhone)
-            Result.success(Unit)
-        } else {
-            val rawErr = result.exceptionOrNull()?.message ?: "Failed to send phone number"
-            val friendlyErr = if (rawErr.contains("API_ID_INVALID", ignoreCase = true)) {
-                "API_ID_INVALID: Telegram requires valid API credentials. Tap 'Configure API Credentials' below to set your free API ID & Hash from my.telegram.org"
-            } else {
-                rawErr
+
+        val settings = TdApi.PhoneNumberAuthenticationSettings()
+        settings.allowFlashCall = false
+        settings.allowMissedCall = false
+        settings.isCurrentPhoneNumber = false
+        settings.allowSmsRetrieverApi = false
+
+        return try {
+            withTimeout(25_000L) {
+                val result = sendAsync(TdApi.SetAuthenticationPhoneNumber(cleanPhone, settings))
+                if (result.isSuccess) {
+                    if (_authState.value !is TelegramAuthState.WaitingCode) {
+                        _authState.value = TelegramAuthState.WaitingCode(
+                            phoneNumber = cleanPhone,
+                            deliveryType = "Telegram",
+                            deliveryDescription = "We sent your Telegram login code. Check your active Telegram app or SMS."
+                        )
+                    }
+                    Result.success(Unit)
+                } else {
+                    val rawErr = result.exceptionOrNull()?.message ?: "Failed to send phone number"
+                    val friendlyErr = parseTelegramError(rawErr)
+                    _authState.value = TelegramAuthState.Error(friendlyErr)
+                    Result.failure(Exception(friendlyErr))
+                }
             }
-            _authState.value = TelegramAuthState.Error(friendlyErr)
-            Result.failure(Exception(friendlyErr))
+        } catch (e: TimeoutCancellationException) {
+            val timeoutErr = "Request timed out connecting to Telegram. Please check your internet connection or verify your Telegram API credentials."
+            _authState.value = TelegramAuthState.Error(timeoutErr)
+            Result.failure(Exception(timeoutErr))
+        } catch (e: Exception) {
+            val err = parseTelegramError(e.message ?: "Authentication error")
+            _authState.value = TelegramAuthState.Error(err)
+            Result.failure(Exception(err))
         }
     }
 
     suspend fun sendCode(code: String): Result<Unit> {
         _authState.value = TelegramAuthState.VerifyingCode
         val cleanCode = code.trim()
-        val result = sendAsync(TdApi.CheckAuthenticationCode(cleanCode))
-        return if (result.isSuccess) {
-            Result.success(Unit)
-        } else {
-            val err = result.exceptionOrNull()?.message ?: "Invalid Telegram OTP code"
+        return try {
+            withTimeout(25_000L) {
+                val result = sendAsync(TdApi.CheckAuthenticationCode(cleanCode))
+                if (result.isSuccess) {
+                    Result.success(Unit)
+                } else {
+                    val rawErr = result.exceptionOrNull()?.message ?: "Invalid Telegram OTP code"
+                    val friendlyErr = parseTelegramError(rawErr)
+                    _authState.value = TelegramAuthState.Error(friendlyErr)
+                    Result.failure(Exception(friendlyErr))
+                }
+            }
+        } catch (e: TimeoutCancellationException) {
+            val timeoutErr = "Verification timed out. Please check your connection and try again."
+            _authState.value = TelegramAuthState.Error(timeoutErr)
+            Result.failure(Exception(timeoutErr))
+        } catch (e: Exception) {
+            val err = parseTelegramError(e.message ?: "Verification failed")
             _authState.value = TelegramAuthState.Error(err)
             Result.failure(Exception(err))
         }
@@ -301,13 +416,50 @@ class TelegramClientManager(
 
     suspend fun sendPassword(password: String): Result<Unit> {
         _authState.value = TelegramAuthState.VerifyingPassword
-        val result = sendAsync(TdApi.CheckAuthenticationPassword(password))
-        return if (result.isSuccess) {
-            Result.success(Unit)
-        } else {
-            val err = result.exceptionOrNull()?.message ?: "Incorrect 2FA password"
+        return try {
+            withTimeout(25_000L) {
+                val result = sendAsync(TdApi.CheckAuthenticationPassword(password))
+                if (result.isSuccess) {
+                    Result.success(Unit)
+                } else {
+                    val rawErr = result.exceptionOrNull()?.message ?: "Incorrect 2FA password"
+                    val friendlyErr = parseTelegramError(rawErr)
+                    _authState.value = TelegramAuthState.Error(friendlyErr)
+                    Result.failure(Exception(friendlyErr))
+                }
+            }
+        } catch (e: TimeoutCancellationException) {
+            val timeoutErr = "Password verification timed out. Please try again."
+            _authState.value = TelegramAuthState.Error(timeoutErr)
+            Result.failure(Exception(timeoutErr))
+        } catch (e: Exception) {
+            val err = parseTelegramError(e.message ?: "Password verification failed")
             _authState.value = TelegramAuthState.Error(err)
             Result.failure(Exception(err))
+        }
+    }
+
+    fun parseTelegramError(raw: String): String {
+        return when {
+            raw.contains("PHONE_NUMBER_INVALID", ignoreCase = true) ->
+                "Invalid phone number. Ensure your country code (+91 for India) is selected and enter valid subscriber digits."
+            raw.contains("PHONE_PASSWORD_FLOOD", ignoreCase = true) ->
+                "Too many failed attempts. Telegram requires you to wait before trying again."
+            raw.contains("PHONE_CODE_INVALID", ignoreCase = true) ->
+                "Incorrect Telegram login code. Please check your Telegram app or SMS and try again."
+            raw.contains("PHONE_CODE_EXPIRED", ignoreCase = true) ->
+                "Telegram login code has expired. Please re-enter your phone number to receive a new code."
+            raw.contains("PASSWORD_HASH_INVALID", ignoreCase = true) ->
+                "Incorrect Two-Step Verification (2FA) password. Please try again."
+            raw.contains("FLOOD_WAIT", ignoreCase = true) -> {
+                val seconds = Regex("\\d+").find(raw)?.value ?: "several"
+                "Telegram rate limit: FLOOD_WAIT. Please wait $seconds seconds before requesting another code."
+            }
+            raw.contains("API_ID_INVALID", ignoreCase = true) || raw.contains("API_ID_PUBLISHED_FLOOD", ignoreCase = true) ->
+                "Telegram network connection error ($raw). Please try again shortly or check your internet connection."
+            raw.contains("NETWORK", ignoreCase = true) || raw.contains("CONNECTION", ignoreCase = true) ->
+                "Network connection issue connecting to Telegram MTProto servers. Check your internet connection."
+            else -> raw
         }
     }
 
@@ -540,15 +692,24 @@ class TelegramClientManager(
         suspendCancellableCoroutine { continuation ->
             val c = client
             if (c == null) {
-                continuation.resume(Result.failure(IllegalStateException("TDLib client is not initialized")))
+                if (continuation.isActive) {
+                    continuation.resume(Result.failure(IllegalStateException("TDLib client is not initialized")))
+                }
                 return@suspendCancellableCoroutine
             }
-            c.send(function) { result ->
-                if (result is TdApi.Error) {
-                    continuation.resume(Result.failure(Exception(result.message ?: "Telegram Error ${result.code}")))
-                } else {
-                    @Suppress("UNCHECKED_CAST")
-                    continuation.resume(Result.success(result as T))
+            try {
+                c.send(function) { result ->
+                    if (!continuation.isActive) return@send
+                    if (result is TdApi.Error) {
+                        continuation.resume(Result.failure(Exception(result.message ?: "Telegram Error ${result.code}")))
+                    } else {
+                        @Suppress("UNCHECKED_CAST")
+                        continuation.resume(Result.success(result as T))
+                    }
+                }
+            } catch (e: Exception) {
+                if (continuation.isActive) {
+                    continuation.resume(Result.failure(e))
                 }
             }
         }

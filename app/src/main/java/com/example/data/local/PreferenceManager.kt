@@ -24,12 +24,12 @@ class PreferenceManager(private val context: Context) {
 
     fun getSyncApiId(): String {
         val stored = sharedPrefs.getString("telegram_api_id", "") ?: ""
-        return if (stored.isBlank() || stored == "94575" || stored == "0") "6" else stored
+        return if (stored.isBlank() || stored == "94575" || stored == "6" || stored == "0") "17349" else stored
     }
 
     fun getSyncApiHash(): String {
         val stored = sharedPrefs.getString("telegram_api_hash", "") ?: ""
-        return if (stored.isBlank() || stored == "a3406de8d1717142218bb14d800e635b") "eb06d4abfb49dc3eeb1aeb98ae0f581e" else stored
+        return if (stored.isBlank() || stored == "a3406de8d1717142218bb14d800e635b" || stored == "eb06d4abfb49dc3eeb1aeb98ae0f581e") "344583e45741c457fe1862106095a5eb" else stored
     }
 
     fun saveSyncApiCredentials(apiId: String, apiHash: String) {

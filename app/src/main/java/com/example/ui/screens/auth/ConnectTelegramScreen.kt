@@ -259,12 +259,39 @@ fun ConnectTelegramScreen(
                             )
 
                             if (state is TelegramAuthState.Error) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = state.message,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Authentication Error",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = state.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(20.dp))
@@ -273,7 +300,7 @@ fun ConnectTelegramScreen(
                                 text = "Send Telegram OTP",
                                 onClick = { viewModel.sendPhoneNumber() },
                                 isLoading = isSending,
-                                enabled = phoneInput.isNotBlank(),
+                                enabled = phoneInput.isNotBlank() && !isSending,
                                 modifier = Modifier.fillMaxWidth(),
                                 tag = "send_otp_button"
                             )
@@ -285,25 +312,62 @@ fun ConnectTelegramScreen(
                             val waitingCodeState = state as? TelegramAuthState.WaitingCode
 
                             Text(
-                                text = "Enter Telegram OTP",
+                                text = "Enter Telegram Login Code",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Text(
-                                text = "A login code was sent to your Telegram app on ${waitingCodeState?.phoneNumber ?: ""}. Enter the code below.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            // Delivery Info Card
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = KawachPrimary.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, KawachPrimary.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Phone,
+                                            contentDescription = null,
+                                            tint = KawachPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Delivery Method: ${waitingCodeState?.deliveryType ?: "Telegram"}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = KawachPrimary
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = waitingCodeState?.deliveryDescription?.ifBlank {
+                                            "A login code was sent to your Telegram account. Please check your Telegram app."
+                                        } ?: "A login code was sent to your Telegram account. Please check your Telegram app.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (!waitingCodeState?.phoneNumber.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Recipient: ${waitingCodeState?.phoneNumber}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             OutlinedTextField(
                                 value = otpInput,
-                                onValueChange = { viewModel.setOtpInput(it) },
+                                onValueChange = { viewModel.setOtpInput(it.filter { char -> char.isDigit() }) },
                                 label = { Text("Telegram OTP Code") },
+                                placeholder = { Text("Enter 5-digit code") },
                                 leadingIcon = {
                                     Icon(Icons.Default.Key, contentDescription = null, tint = KawachPrimary)
                                 },
@@ -320,16 +384,36 @@ fun ConnectTelegramScreen(
                                     .testTag("otp_input_field")
                             )
 
+                            if (state is TelegramAuthState.Error) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = (state as TelegramAuthState.Error).message,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+
                             Spacer(modifier = Modifier.height(20.dp))
 
                             GlassButton(
-                                text = "Verify Code",
+                                text = "Verify Login Code",
                                 onClick = { viewModel.sendOtp() },
                                 isLoading = isVerifying,
-                                enabled = otpInput.isNotBlank(),
+                                enabled = otpInput.isNotBlank() && !isVerifying,
                                 modifier = Modifier.fillMaxWidth(),
                                 tag = "verify_otp_button"
                             )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            TextButton(
+                                onClick = { viewModel.resetAuthState() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Wrong number? Change Phone Number")
+                            }
                         }
 
                         is TelegramAuthState.WaitingPassword,
@@ -338,7 +422,7 @@ fun ConnectTelegramScreen(
                             val pwdState = state as? TelegramAuthState.WaitingPassword
 
                             Text(
-                                text = "Two-Step Verification",
+                                text = "Two-Step Verification (2FA)",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -346,18 +430,32 @@ fun ConnectTelegramScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = "Your Telegram account is protected by a Two-Step Verification cloud password. Enter your password to continue.",
+                                text = "Your Telegram account has Two-Step Verification enabled. Enter your cloud password to authenticate.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
                             if (!pwdState?.hint.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Hint: ${pwdState?.hint}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = KawachAccent
-                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = KawachAccent.copy(alpha = 0.12f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Lock, contentDescription = null, tint = KawachAccent, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Password Hint: ${pwdState?.hint}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = KawachAccent
+                                        )
+                                    }
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -365,7 +463,7 @@ fun ConnectTelegramScreen(
                             OutlinedTextField(
                                 value = passwordInput,
                                 onValueChange = { viewModel.setPasswordInput(it) },
-                                label = { Text("2FA Password") },
+                                label = { Text("2FA Cloud Password") },
                                 leadingIcon = {
                                     Icon(Icons.Default.Lock, contentDescription = null, tint = KawachPrimary)
                                 },
@@ -391,16 +489,64 @@ fun ConnectTelegramScreen(
                                     .testTag("2fa_password_input")
                             )
 
+                            if (state is TelegramAuthState.Error) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = (state as TelegramAuthState.Error).message,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+
                             Spacer(modifier = Modifier.height(20.dp))
 
                             GlassButton(
                                 text = "Verify 2FA Password",
                                 onClick = { viewModel.send2faPassword() },
                                 isLoading = isVerifying,
-                                enabled = passwordInput.isNotBlank(),
+                                enabled = passwordInput.isNotBlank() && !isVerifying,
                                 modifier = Modifier.fillMaxWidth(),
                                 tag = "verify_2fa_button"
                             )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            TextButton(
+                                onClick = { viewModel.resetAuthState() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Back to Phone Number")
+                            }
+                        }
+
+                        is TelegramAuthState.Closed -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = KawachPrimary,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Telegram Client Reconnecting",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                GlassButton(
+                                    text = "Connect Again",
+                                    onClick = { viewModel.resetAuthState() },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
 
                         is TelegramAuthState.Authenticated -> {
@@ -538,109 +684,3 @@ fun CountryPickerDialog(
     )
 }
 
-@Composable
-fun ApiCredentialsDialog(
-    initialApiId: String,
-    initialApiHash: String,
-    onDismiss: () -> Unit,
-    onSave: (apiId: String, apiHash: String) -> Unit
-) {
-    var apiIdInput by remember { mutableStateOf(initialApiId) }
-    var apiHashInput by remember { mutableStateOf(initialApiHash) }
-    val uriHandler = LocalUriHandler.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Key, contentDescription = null, tint = KawachPrimary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Telegram API Credentials", fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text(
-                    text = "To connect to Telegram Saved Messages without restrictions, enter your free API credentials:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("How to get free credentials (1 minute):", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("1. Open my.telegram.org in your browser", fontSize = 12.sp)
-                        Text("2. Log in with your phone number", fontSize = 12.sp)
-                        Text("3. Tap 'API development tools'", fontSize = 12.sp)
-                        Text("4. Copy App api_id and App api_hash", fontSize = 12.sp)
-
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(
-                            onClick = {
-                                try {
-                                    uriHandler.openUri("https://my.telegram.org")
-                                } catch (e: Exception) {}
-                            },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Open my.telegram.org", fontSize = 12.sp)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = apiIdInput,
-                    onValueChange = { apiIdInput = it.filter { char -> char.isDigit() } },
-                    label = { Text("App api_id (Number)") },
-                    placeholder = { Text("e.g. 24967394") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = apiHashInput,
-                    onValueChange = { apiHashInput = it.trim() },
-                    label = { Text("App api_hash (32-char hex)") },
-                    placeholder = { Text("e.g. 8da85b0d5bfe...") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(apiIdInput.trim(), apiHashInput.trim())
-                    onDismiss()
-                },
-                enabled = apiIdInput.isNotBlank() && apiHashInput.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = KawachPrimary)
-            ) {
-                Text("Save & Reconnect")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}

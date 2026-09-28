@@ -31,7 +31,8 @@ sealed interface TelegramAuthState {
     data class WaitingCode(
         val phoneNumber: String,
         val timeout: Int = 60,
-        val deliveryType: String = "Telegram"
+        val deliveryType: String = "Telegram",
+        val deliveryDescription: String = ""
     ) : TelegramAuthState
     data object VerifyingCode : TelegramAuthState
     data class WaitingPassword(
@@ -42,4 +43,5 @@ sealed interface TelegramAuthState {
     data class Authenticated(val user: TelegramUser) : TelegramAuthState
     data class Error(val message: String, val canRetry: Boolean = true) : TelegramAuthState
     data object LoggingOut : TelegramAuthState
+    data object Closed : TelegramAuthState
 }

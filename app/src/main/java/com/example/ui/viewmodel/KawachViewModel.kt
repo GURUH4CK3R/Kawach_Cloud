@@ -213,12 +213,32 @@ class KawachViewModel(
     }
 
     fun sendPhoneNumber() {
+        val currentAuth = authState.value
+        if (currentAuth is TelegramAuthState.SendingPhoneNumber) {
+            return
+        }
+
         val phone = _phoneNumberInput.value.trim()
         if (phone.isBlank()) {
             emitMessage("Please enter your Telegram phone number")
             return
         }
-        val fullPhone = "${_selectedCountry.value.dialCode}$phone"
+
+        val dial = _selectedCountry.value.dialCode
+        val cleanPhoneDigits = phone.replace(Regex("[^0-9]"), "")
+        val dialDigits = dial.replace(Regex("[^0-9]"), "")
+        val fullPhone = when {
+            phone.startsWith("+") -> "+$cleanPhoneDigits"
+            cleanPhoneDigits.startsWith(dialDigits) -> "+$cleanPhoneDigits"
+            cleanPhoneDigits.startsWith("0") -> "+$dialDigits" + cleanPhoneDigits.dropWhile { it == '0' }
+            else -> "+$dialDigits$cleanPhoneDigits"
+        }
+
+        if (fullPhone.length < 9) {
+            emitMessage("Please enter a valid phone number with country code")
+            return
+        }
+
         viewModelScope.launch {
             val result = repository.sendPhoneNumber(fullPhone)
             if (result.isFailure) {
@@ -228,6 +248,9 @@ class KawachViewModel(
     }
 
     fun sendOtp() {
+        if (authState.value is TelegramAuthState.VerifyingCode) {
+            return
+        }
         val code = _otpInput.value.trim()
         if (code.isBlank()) {
             emitMessage("Please enter the Telegram OTP")
@@ -242,6 +265,9 @@ class KawachViewModel(
     }
 
     fun send2faPassword() {
+        if (authState.value is TelegramAuthState.VerifyingPassword) {
+            return
+        }
         val password = _passwordInput.value
         if (password.isBlank()) {
             emitMessage("Please enter your Telegram 2FA password")

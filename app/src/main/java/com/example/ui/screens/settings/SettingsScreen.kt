@@ -78,21 +78,7 @@ fun SettingsScreen(
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val authState by viewModel.authState.collectAsState()
-    val configuredApiId by viewModel.configuredApiId.collectAsState()
-    val configuredApiHash by viewModel.configuredApiHash.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showApiConfigDialog by remember { mutableStateOf(false) }
-
-    if (showApiConfigDialog) {
-        com.example.ui.screens.auth.ApiCredentialsDialog(
-            initialApiId = configuredApiId,
-            initialApiHash = configuredApiHash,
-            onDismiss = { showApiConfigDialog = false },
-            onSave = { apiId, apiHash ->
-                viewModel.updateApiCredentials(apiId, apiHash)
-            }
-        )
-    }
 
     Scaffold(
         topBar = {
@@ -266,49 +252,6 @@ fun SettingsScreen(
                                 }
                             }
                         }
-                    }
-                }
-            }
-
-            // Section: Telegram API Configuration
-            SectionHeader(title = "TELEGRAM API CREDENTIALS")
-
-            GlassCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "MTProto API Credentials",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (configuredApiId.isNotBlank()) "API ID: $configuredApiId (Configured)" else "Default developer credentials",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    OutlinedButton(
-                        onClick = { showApiConfigDialog = true },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (configuredApiId.isNotBlank()) "Edit API Credentials" else "Configure API Credentials")
                     }
                 }
             }
