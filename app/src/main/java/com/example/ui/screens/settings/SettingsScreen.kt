@@ -339,9 +339,17 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     AboutInfoRow(
+                        icon = Icons.Default.Shield,
+                        label = "Tagline",
+                        value = "Secure Telegram Backend Storage"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    AboutInfoRow(
                         icon = Icons.Default.Person,
                         label = "Lead Developer",
-                        value = "ARAVIND (GURU)"
+                        value = "Aravind(guru)"
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))

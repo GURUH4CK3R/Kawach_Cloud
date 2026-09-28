@@ -171,7 +171,7 @@ fun SplashScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Encrypted Telegram Cloud Storage",
+                    text = "Secure Telegram Backend Storage",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary

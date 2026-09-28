@@ -314,6 +314,9 @@ class TelegramClientManager(
             isDownloading || isDownloadCompleted -> {
                 val progress = if (totalSize > 0) (downloadedSize.toFloat() / totalSize.toFloat()).coerceIn(0f, 1f) else if (isDownloadCompleted) 1f else 0f
                 val path = if (isDownloadCompleted) file.local?.path else null
+                if (isDownloadCompleted && !path.isNullOrBlank()) {
+                    onThumbnailDownloadedListener?.invoke(file.id, path)
+                }
                 listener(progress, isDownloadCompleted, path)
             }
             isUploading || isUploadCompleted -> {
@@ -330,10 +333,21 @@ class TelegramClientManager(
             currentUserId = user.id
             val tgUser = mapUser(user)
 
+            val fullName = "${user.firstName ?: ""} ${user.lastName ?: ""}".trim()
+            val phone = user.phoneNumber ?: ""
+            preferenceManager.saveSyncActiveUser(user.id, fullName, phone)
+            scope.launch {
+                try {
+                    preferenceManager.setActiveUser(user.id, fullName, phone)
+                } catch (_: Exception) {}
+            }
+
             // Saved Messages chat is the private chat with current user
             val chatResult = sendAsync(TdApi.CreatePrivateChat(user.id, false))
             if (chatResult.isSuccess) {
-                savedMessagesChatId = chatResult.getOrThrow().id
+                val cId = chatResult.getOrThrow().id
+                savedMessagesChatId = cId
+                send(TdApi.OpenChat(cId)) {}
             }
 
             _authState.value = TelegramAuthState.Authenticated(tgUser)
@@ -484,6 +498,12 @@ class TelegramClientManager(
 
     suspend fun logout(): Result<Unit> {
         _authState.value = TelegramAuthState.LoggingOut
+        preferenceManager.clearSyncActiveUser()
+        scope.launch {
+            try {
+                preferenceManager.clearActiveUser()
+            } catch (_: Exception) {}
+        }
         val result = sendAsync(TdApi.LogOut())
         return if (result.isSuccess) {
             currentUserId = 0L
@@ -502,7 +522,9 @@ class TelegramClientManager(
         if (currentUserId != 0L) {
             val chatResult = sendAsync(TdApi.CreatePrivateChat(currentUserId, false))
             if (chatResult.isSuccess) {
-                savedMessagesChatId = chatResult.getOrThrow().id
+                val cId = chatResult.getOrThrow().id
+                savedMessagesChatId = cId
+                send(TdApi.OpenChat(cId)) {}
                 return savedMessagesChatId
             }
         }
@@ -795,10 +817,12 @@ class TelegramClientManager(
             return@withContext Result.failure(IllegalStateException("Chat ID not available"))
         }
 
+        send(TdApi.OpenChat(chatId)) {}
+
         var fromMessageId = 0L
         var totalSynced = 0
         var pages = 0
-        val maxPages = 20 // 20 pages * 100 = up to 2000 messages
+        val maxPages = 50 // Allows checking up to 5000 messages across history
 
         while (pages < maxPages) {
             val getHistory = TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)
@@ -829,10 +853,6 @@ class TelegramClientManager(
 
             fromMessageId = messages.last().id
             pages++
-
-            if (messages.size < 100) {
-                break // reached beginning of chat history
-            }
         }
 
         Result.success(totalSynced)
@@ -850,55 +870,12 @@ class TelegramClientManager(
         }
     }
 
-    data class SavedMessagesFetchResult(
-        val files: List<CloudFile>,
-        val nextFromMessageId: Long,
-        val hasMore: Boolean
-    )
-
-    suspend fun fetchSavedMessagesFromTdlib(
-        fromMessageId: Long = 0L,
-        limit: Int = 50,
-        searchQuery: String = ""
-    ): Result<SavedMessagesFetchResult> = withContext(Dispatchers.IO) {
-        val chatId = getSavedChatId()
-        if (chatId == 0L) {
-            return@withContext Result.failure(IllegalStateException("Saved Messages chat is not available. Please verify your connection."))
-        }
-
-        val getHistory = TdApi.GetChatHistory(chatId, fromMessageId, 0, limit, false)
-        val historyRes = sendAsync(getHistory)
-        if (historyRes.isFailure) return@withContext Result.failure(historyRes.exceptionOrNull() ?: Exception("Failed to fetch Saved Messages"))
-        val messages = historyRes.getOrThrow().messages
-
-        val parsedFiles = mutableListOf<CloudFile>()
-        for (msg in messages) {
-            val parsed = parseSavedMessage(msg, allowAllMedia = true)
-            parsed.file?.let { file ->
-                if (searchQuery.isBlank() || file.name.contains(searchQuery.trim(), ignoreCase = true) || file.kawachTag.contains(searchQuery.trim(), ignoreCase = true)) {
-                    parsedFiles.add(file)
-                }
-            }
-        }
-
-        val lastMsgId = if (messages.isNotEmpty()) messages.last().id else 0L
-        val hasMore = messages.size >= limit
-
-        Result.success(
-            SavedMessagesFetchResult(
-                files = parsedFiles,
-                nextFromMessageId = lastMsgId,
-                hasMore = hasMore
-            )
-        )
-    }
-
     data class ParsedMessageResult(
         val file: CloudFile? = null,
         val folder: Pair<String, String>? = null
     )
 
-    fun parseSavedMessage(message: TdApi.Message, allowAllMedia: Boolean = false): ParsedMessageResult {
+    fun parseSavedMessage(message: TdApi.Message): ParsedMessageResult {
         val content = message.content
 
         // 1. Check for folder metadata messages
@@ -971,9 +948,14 @@ class TelegramClientManager(
             else -> return ParsedMessageResult()
         }
 
-        val hasKawachTag = captionText != null && (captionText.contains(TelegramConstants.KAWACH_SIGNATURE) || captionText.contains(TelegramConstants.KAWACH_TAG))
+        val hasKawachTag = captionText != null && (
+            captionText.contains(TelegramConstants.KAWACH_SIGNATURE) ||
+            captionText.contains(TelegramConstants.KAWACH_TAG) ||
+            captionText.contains("[KawachCloud") ||
+            captionText.contains("#KawachCloud")
+        )
 
-        if (!allowAllMedia && !hasKawachTag) {
+        if (!hasKawachTag) {
             return ParsedMessageResult()
         }
 
@@ -984,22 +966,14 @@ class TelegramClientManager(
             client?.send(TdApi.DownloadFile(thumbFile.id, 32, 0, 0, false)) {}
         }
 
-        val folderId = if (hasKawachTag && captionText != null) {
-            val folderRegex = Regex("folder:([a-zA-Z0-9_-]+)")
-            val folderMatch = folderRegex.find(captionText)
-            folderMatch?.groupValues?.getOrNull(1) ?: "root"
-        } else {
-            "saved_messages"
-        }
+        val folderRegex = Regex("folder:([a-zA-Z0-9_.-]+)")
+        val folderMatch = captionText?.let { folderRegex.find(it) }
+        val folderId = folderMatch?.groupValues?.getOrNull(1) ?: "root"
 
         // Extract original name from signature if present: "name:<name>"
-        val realFileName = if (hasKawachTag && captionText != null) {
-            val nameRegex = Regex("name:(.+) ${Regex.escape(TelegramConstants.KAWACH_TAG)}")
-            val nameMatch = nameRegex.find(captionText)?.groupValues?.getOrNull(1)?.trim()
-            if (!nameMatch.isNullOrBlank()) nameMatch else fileName
-        } else {
-            fileName
-        }
+        val nameRegex = Regex("name:(.+?)(?:\\s+#KawachCloud|\\s*\\[KawachCloud\\]|$)")
+        val nameMatch = captionText?.let { nameRegex.find(it) }?.groupValues?.getOrNull(1)?.trim()
+        val realFileName = if (!nameMatch.isNullOrBlank()) nameMatch else fileName
 
         val localPath = tdFile.local?.path
         val isDownloaded = tdFile.local?.isDownloadingCompleted == true && !localPath.isNullOrBlank() && File(localPath).exists()
@@ -1021,29 +995,6 @@ class TelegramClientManager(
         )
 
         return ParsedMessageResult(file = cloudFile)
-    }
-
-    suspend fun verifyExistingMessages(messageIds: LongArray): List<Long> = withContext(Dispatchers.IO) {
-        val chatId = getSavedChatId()
-        if (chatId == 0L || messageIds.isEmpty()) return@withContext emptyList()
-
-        val validIds = mutableListOf<Long>()
-        val chunks = messageIds.toList().chunked(100)
-        for (chunk in chunks) {
-            val getMsgs = TdApi.GetMessages(chatId, chunk.toLongArray())
-            val res = sendAsync(getMsgs)
-            if (res.isSuccess) {
-                val msgs = res.getOrThrow().messages
-                for (msg in msgs) {
-                    if (msg != null && msg.id != 0L) {
-                        validIds.add(msg.id)
-                    }
-                }
-            } else {
-                validIds.addAll(chunk)
-            }
-        }
-        validIds
     }
 
     private fun send(function: TdApi.Function<*>, handler: (TdApi.Object) -> Unit) {

@@ -78,7 +78,28 @@ class PreferenceManager(private val context: Context) {
         }
     }
 
+    fun getSyncActiveUserId(): Long {
+        return sharedPrefs.getLong("active_user_id", 0L)
+    }
+
+    fun saveSyncActiveUser(userId: Long, name: String, phone: String) {
+        sharedPrefs.edit()
+            .putLong("active_user_id", userId)
+            .putString("cached_user_name", name)
+            .putString("cached_phone", phone)
+            .apply()
+    }
+
+    fun clearSyncActiveUser() {
+        sharedPrefs.edit()
+            .remove("active_user_id")
+            .remove("cached_user_name")
+            .remove("cached_phone")
+            .apply()
+    }
+
     suspend fun setActiveUser(userId: Long, name: String, phone: String) {
+        saveSyncActiveUser(userId, name, phone)
         context.dataStore.edit { prefs ->
             prefs[KEY_ACTIVE_USER_ID] = userId
             prefs[KEY_CACHED_USER_NAME] = name
@@ -87,6 +108,7 @@ class PreferenceManager(private val context: Context) {
     }
 
     suspend fun clearActiveUser() {
+        clearSyncActiveUser()
         context.dataStore.edit { prefs ->
             prefs.remove(KEY_ACTIVE_USER_ID)
             prefs.remove(KEY_CACHED_USER_NAME)

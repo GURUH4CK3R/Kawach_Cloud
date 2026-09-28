@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
+import com.example.data.local.PreferenceManager
 import com.example.data.local.dao.FileDao
 import com.example.data.local.dao.FolderDao
 import com.example.data.local.entity.FileEntity
@@ -35,7 +36,8 @@ class TelegramRepository(
     private val context: Context,
     private val clientManager: TelegramClientManager,
     private val fileDao: FileDao,
-    private val folderDao: FolderDao
+    private val folderDao: FolderDao,
+    private val preferenceManager: PreferenceManager = PreferenceManager(context)
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -44,10 +46,17 @@ class TelegramRepository(
     // In-memory active file transfers for real-time UI progress (messageId -> CloudFile with progress)
     private val activeTransfers = MutableStateFlow<Map<Long, CloudFile>>(emptyMap())
 
-    private val _activeUserId = MutableStateFlow<Long>(0L)
-    private var currentUserId: Long = 0L
+    private val initialUserId = preferenceManager.getSyncActiveUserId()
+    private val _activeUserId = MutableStateFlow<Long>(initialUserId)
+    private var currentUserId: Long = initialUserId
 
     init {
+        if (initialUserId != 0L) {
+            scope.launch {
+                ensureDefaultFolders(initialUserId)
+            }
+        }
+
         scope.launch {
             authState.collect { state ->
                 if (state is TelegramAuthState.Authenticated) {
@@ -56,7 +65,7 @@ class TelegramRepository(
                     _activeUserId.value = uid
                     // Ensure Default Folders exist
                     ensureDefaultFolders(uid)
-                    // Auto-sync files from Saved Messages
+                    // Auto-sync files from Saved Messages in background
                     syncFiles()
                 } else if (state is TelegramAuthState.WaitingPhoneNumber) {
                     currentUserId = 0L
@@ -186,41 +195,28 @@ class TelegramRepository(
                 folderDao.insertFolders(folderEntities)
             }
             if (batchFiles.isNotEmpty()) {
-                val fileEntities = batchFiles.map { FileEntity.fromCloudFile(it, uid) }
+                val fileEntities = batchFiles.map { cloudFile ->
+                    val existing = fileDao.getFileByMessageId(cloudFile.messageId)
+                    val mergedLocalPath = if (!cloudFile.localPath.isNullOrBlank() && File(cloudFile.localPath).exists()) {
+                        cloudFile.localPath
+                    } else if (existing?.isDownloaded == true && !existing.localPath.isNullOrBlank() && File(existing.localPath).exists()) {
+                        existing.localPath
+                    } else {
+                        cloudFile.localPath
+                    }
+                    val isDownloaded = (!mergedLocalPath.isNullOrBlank() && File(mergedLocalPath).exists()) || cloudFile.isDownloaded
+                    val thumbPath = if (!cloudFile.thumbnailPath.isNullOrBlank()) cloudFile.thumbnailPath else existing?.thumbnailPath
+                    FileEntity.fromCloudFile(cloudFile, uid).copy(
+                        localPath = mergedLocalPath,
+                        isDownloaded = isDownloaded,
+                        thumbnailPath = thumbPath
+                    )
+                }
                 fileDao.insertFiles(fileEntities)
             }
         }
 
-        // Verify known files against Telegram and prune any that were deleted remotely
-        try {
-            val localFiles = fileDao.getFilesForUser(uid).firstOrNull() ?: emptyList()
-            if (localFiles.isNotEmpty()) {
-                val messageIds = localFiles.map { it.messageId }.toLongArray()
-                val survivingIds = clientManager.verifyExistingMessages(messageIds).toSet()
-                val deletedIds = localFiles.map { it.messageId }.filter { it !in survivingIds }
-                for (delId in deletedIds) {
-                    fileDao.deleteFileByMessageId(delId, uid)
-                }
-            }
-        } catch (_: Exception) {}
-
         result
-    }
-
-    suspend fun fetchSavedMessagesFromTelegram(
-        fromMessageId: Long = 0L,
-        limit: Int = 50,
-        searchQuery: String = ""
-    ): Result<TelegramClientManager.SavedMessagesFetchResult> {
-        return clientManager.fetchSavedMessagesFromTdlib(fromMessageId, limit, searchQuery)
-    }
-
-    suspend fun importSavedMessageToFolder(file: CloudFile, targetFolderId: String): Result<CloudFile> = withContext(Dispatchers.IO) {
-        val uid = currentUserId
-        if (uid == 0L) return@withContext Result.failure(IllegalStateException("User not authenticated"))
-        val updated = file.copy(folderId = targetFolderId)
-        fileDao.insertFile(FileEntity.fromCloudFile(updated, uid))
-        Result.success(updated)
     }
 
     suspend fun uploadFromUri(
