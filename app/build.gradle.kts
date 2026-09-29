@@ -40,8 +40,13 @@ android {
     ?: System.getenv("KAWACH_RELEASE_KEY_PASSWORD")
     ?: System.getenv("KEY_PASSWORD")
 
-  val hasReleaseSigning = releaseKeystorePath != null &&
-    file(releaseKeystorePath).exists() &&
+  val releaseStoreFile = releaseKeystorePath?.let { path ->
+    val direct = file(path)
+    if (direct.exists()) direct else rootProject.file(path)
+  }
+
+  val hasReleaseSigning = releaseStoreFile != null &&
+    releaseStoreFile.exists() &&
     !releaseStorePassword.isNullOrBlank() &&
     !releaseKeyAlias.isNullOrBlank() &&
     !releaseKeyPassword.isNullOrBlank()
@@ -49,7 +54,7 @@ android {
   signingConfigs {
     if (hasReleaseSigning) {
       create("release") {
-        storeFile = file(releaseKeystorePath!!)
+        storeFile = releaseStoreFile
         storePassword = releaseStorePassword
         keyAlias = releaseKeyAlias
         keyPassword = releaseKeyPassword
