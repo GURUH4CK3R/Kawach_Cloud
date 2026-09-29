@@ -55,78 +55,101 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Setup Release Keystore
+      - name: Validate and Decode Release Keystore
         id: setup-release-keystore
         env:
-          KEYSTORE_BASE64: ${{ secrets.KAWACH_RELEASE_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.KAWACH_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
-            echo "has_keystore=true" >> $GITHUB_OUTPUT
-            echo "Release keystore decoded successfully."
-          else
-            echo "has_keystore=false" >> $GITHUB_OUTPUT
-            echo "::warning::KAWACH_RELEASE_KEYSTORE_BASE64 secret not found; build will generate unsigned release artifacts."
+          MISSING_SECRETS=""
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            MISSING_SECRETS="$MISSING_SECRETS KAWACH_RELEASE_KEYSTORE_BASE64"
           fi
+          if [ -z "$STORE_PASSWORD" ]; then
+            MISSING_SECRETS="$MISSING_SECRETS KAWACH_RELEASE_STORE_PASSWORD"
+          fi
+          if [ -z "$KEY_ALIAS" ]; then
+            MISSING_SECRETS="$MISSING_SECRETS KAWACH_RELEASE_KEY_ALIAS"
+          fi
+          if [ -z "$KEY_PASSWORD" ]; then
+            MISSING_SECRETS="$MISSING_SECRETS KAWACH_RELEASE_KEY_PASSWORD"
+          fi
+
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo "::error::Missing required GitHub Secrets for release signing:$MISSING_SECRETS"
+            echo "Please add these secrets in your repository under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          echo "$KEYSTORE_BASE64" | base64 --decode > "${{ github.workspace }}/release.keystore"
+          if [ ! -s "${{ github.workspace }}/release.keystore" ]; then
+            echo "::error::Decoded release keystore is empty or invalid."
+            exit 1
+          fi
+          echo "Release keystore decoded successfully."
 
       - name: Build Release APK
         env:
           KAWACH_RELEASE_STORE_FILE: ${{ github.workspace }}/release.keystore
-          KAWACH_RELEASE_STORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          KAWACH_RELEASE_KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS || secrets.KEY_ALIAS }}
-          KAWACH_RELEASE_KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
-          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS || secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
+          KAWACH_RELEASE_STORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD }}
+          KAWACH_RELEASE_KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS }}
+          KAWACH_RELEASE_KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --no-daemon
 
       - name: Build Release Bundle (AAB)
         env:
           KAWACH_RELEASE_STORE_FILE: ${{ github.workspace }}/release.keystore
-          KAWACH_RELEASE_STORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          KAWACH_RELEASE_KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS || secrets.KEY_ALIAS }}
-          KAWACH_RELEASE_KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
-          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS || secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --no-daemon
+          KAWACH_RELEASE_STORE_PASSWORD: ${{ secrets.KAWACH_RELEASE_STORE_PASSWORD }}
+          KAWACH_RELEASE_KEY_ALIAS: ${{ secrets.KAWACH_RELEASE_KEY_ALIAS }}
+          KAWACH_RELEASE_KEY_PASSWORD: ${{ secrets.KAWACH_RELEASE_KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease --no-daemon
 
       - name: Verify Release Artifacts & Signing
         run: |
-          echo "=== Checking Release Outputs ==="
-          ls -la app/build/outputs/apk/release/ || true
-          ls -la app/build/outputs/bundle/release/ || true
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          AAB_PATH="app/build/outputs/bundle/release/app-release.aab"
 
-          RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
-          if [ -f "$RELEASE_APK" ]; then
-            echo "Found signed release APK: $RELEASE_APK"
-            APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)
-            if [ -n "$APKSIGNER" ] && [ -x "$APKSIGNER" ]; then
-              echo "Verifying APK signing with $APKSIGNER:"
-              "$APKSIGNER" verify --verbose "$RELEASE_APK"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "::error::Expected signed release APK ($APK_PATH) not found."
+            if [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+              echo "::error::app-release-unsigned.apk was generated instead. Check signing credentials."
             fi
-          elif [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            echo "::warning::Only unsigned APK found (app-release-unsigned.apk). Set repository secrets KAWACH_RELEASE_KEYSTORE_BASE64, KAWACH_RELEASE_STORE_PASSWORD, KAWACH_RELEASE_KEY_ALIAS, and KAWACH_RELEASE_KEY_PASSWORD to build a signed release."
+            exit 1
           fi
+
+          if [ ! -f "$AAB_PATH" ]; then
+            echo "::error::Expected release bundle ($AAB_PATH) not found."
+            exit 1
+          fi
+
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1)
+          if [ -n "$APKSIGNER" ] && [ -x "$APKSIGNER" ]; then
+            echo "Verifying APK signing with $APKSIGNER:"
+            "$APKSIGNER" verify --verbose "$APK_PATH"
+          else
+            echo "apksigner tool not found; checking with jarsigner:"
+            jarsigner -verify -verbose -certs "$APK_PATH"
+          fi
+          echo "Signed release APK and AAB verified successfully."
 
       - name: Clean up Release Keystore
         if: always()
         run: |
-          rm -f release.keystore
-          rm -f app/release.keystore
+          rm -f "${{ github.workspace }}/release.keystore"
+          rm -f "${{ github.workspace }}/app/release.keystore"
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: kawach-cloud-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - name: Upload Release Bundle Artifact
         uses: actions/upload-artifact@v4
         with:
           name: kawach-cloud-release-aab
-          path: app/build/outputs/bundle/release/*.aab
+          path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
