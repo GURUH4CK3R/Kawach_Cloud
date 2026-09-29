@@ -9,14 +9,14 @@
 -dontwarn io.github.tdlibandroid.**
 
 # Keep Room Database, Entities, and DAOs
--keep class com.example.data.local.** { *; }
--keepclassmembers class com.example.data.local.** { *; }
+-keep class com.kawach.cloud.data.local.** { *; }
+-keepclassmembers class com.kawach.cloud.data.local.** { *; }
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.**
 
 # Keep Kawach Domain and Data Models
--keep class com.example.data.model.** { *; }
--keepclassmembers class com.example.data.model.** { *; }
+-keep class com.kawach.cloud.data.model.** { *; }
+-keepclassmembers class com.kawach.cloud.data.model.** { *; }
 
 # Keep Media3 ExoPlayer for in-app video/audio preview playback
 -keep class androidx.media3.exoplayer.** { *; }

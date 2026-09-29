@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.kawach.cloud"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
@@ -22,13 +22,33 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  val releaseKeystorePath = (project.findProperty("KAWACH_RELEASE_STORE_FILE") as? String)
+    ?: System.getenv("KAWACH_RELEASE_STORE_FILE")
+    ?: System.getenv("KEYSTORE_PATH")
+  val releaseStorePassword = (project.findProperty("KAWACH_RELEASE_STORE_PASSWORD") as? String)
+    ?: System.getenv("KAWACH_RELEASE_STORE_PASSWORD")
+    ?: System.getenv("STORE_PASSWORD")
+  val releaseKeyAlias = (project.findProperty("KAWACH_RELEASE_KEY_ALIAS") as? String)
+    ?: System.getenv("KAWACH_RELEASE_KEY_ALIAS")
+    ?: System.getenv("KEY_ALIAS")
+  val releaseKeyPassword = (project.findProperty("KAWACH_RELEASE_KEY_PASSWORD") as? String)
+    ?: System.getenv("KAWACH_RELEASE_KEY_PASSWORD")
+    ?: System.getenv("KEY_PASSWORD")
+
+  val hasReleaseSigning = releaseKeystorePath != null &&
+    file(releaseKeystorePath).exists() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
   signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+    if (hasReleaseSigning) {
+      create("release") {
+        storeFile = file(releaseKeystorePath!!)
+        storePassword = releaseStorePassword
+        keyAlias = releaseKeyAlias
+        keyPassword = releaseKeyPassword
+      }
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -44,7 +64,9 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("debugConfig")
+      if (hasReleaseSigning) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
     debug { signingConfig = signingConfigs.getByName("debugConfig") }
   }
