@@ -17,21 +17,26 @@ android {
     minSdk = 26
     targetSdk = 36
     versionCode = 1
-    versionName = "1.0.0"
+    versionName = "1.0.0-alpha01"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   val releaseKeystorePath = (project.findProperty("KAWACH_RELEASE_STORE_FILE") as? String)
+    ?: (project.findProperty("KEYSTORE_PATH") as? String)
     ?: System.getenv("KAWACH_RELEASE_STORE_FILE")
     ?: System.getenv("KEYSTORE_PATH")
   val releaseStorePassword = (project.findProperty("KAWACH_RELEASE_STORE_PASSWORD") as? String)
+    ?: (project.findProperty("KEYSTORE_PASSWORD") as? String)
     ?: System.getenv("KAWACH_RELEASE_STORE_PASSWORD")
+    ?: System.getenv("KEYSTORE_PASSWORD")
     ?: System.getenv("STORE_PASSWORD")
   val releaseKeyAlias = (project.findProperty("KAWACH_RELEASE_KEY_ALIAS") as? String)
+    ?: (project.findProperty("KEY_ALIAS") as? String)
     ?: System.getenv("KAWACH_RELEASE_KEY_ALIAS")
     ?: System.getenv("KEY_ALIAS")
   val releaseKeyPassword = (project.findProperty("KAWACH_RELEASE_KEY_PASSWORD") as? String)
+    ?: (project.findProperty("KEY_PASSWORD") as? String)
     ?: System.getenv("KAWACH_RELEASE_KEY_PASSWORD")
     ?: System.getenv("KEY_PASSWORD")
 
@@ -71,8 +76,8 @@ android {
     debug { signingConfig = signingConfigs.getByName("debugConfig") }
   }
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
   }
   buildFeatures {
     compose = true

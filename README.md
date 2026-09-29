@@ -4,16 +4,16 @@
 
 ### *Your personal cloud. Powered by Telegram.*
 
-[![Version](https://img.shields.io/badge/Version-1.0.0-orange.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud/releases)
-[![Status](https://img.shields.io/badge/Status-Release-blue.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud)
-[![Storage](https://img.shields.io/badge/Storage-Unlimited%20Cloud-success.svg?style=for-the-badge&logo=icloud&logoColor=white)](#-features)
+[![Version](https://img.shields.io/badge/Version-1.0.0--alpha01-orange.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud/releases)
+[![Status](https://img.shields.io/badge/Status-Alpha-blue.svg?style=for-the-badge)](https://github.com/GURUH4CK3R/Kawach_Cloud)
+[![Storage](https://img.shields.io/badge/Storage-Telegram%20Backend-success.svg?style=for-the-badge&logo=telegram&logoColor=white)](#-features)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg?style=for-the-badge&logo=android&logoColor=white)](https://android.com)
 [![License](https://img.shields.io/badge/License-Apache%202.0-purple.svg?style=for-the-badge)](LICENSE)
 
 <br/>
 
 <p align="center">
-  <b>Kawach Cloud</b> is a modern Android application that provides <b>free, unlimited personal cloud storage</b> by using your Telegram Saved Messages as the storage backend.
+  <b>Kawach Cloud</b> is a modern Android application that provides personal cloud storage by using your Telegram Saved Messages as the storage backend.
 </p>
 
 </div>
@@ -42,8 +42,8 @@
 
 ## ✨ Features
 
-- **Unlimited cloud storage** — Store unlimited personal files without subscription costs or total capacity caps, backed by Telegram's cloud (supports files up to 2 GB each, or 4 GB with Telegram Premium).
-- **Telegram-powered file storage** — Sync and manage your documents, media, and archives directly in your Telegram Saved Messages.
+- **Telegram-backed storage** — Uses your Telegram Saved Messages as the storage backend (supports files up to 2 GB each, or 4 GB with Telegram Premium).
+- **Direct MTProto connection** — Communicates directly with Telegram via TDLib without intermediate third-party servers.
 - **Multiple file upload** — Select and upload multiple files at once with a real-time sequential progress queue.
 - **File and folder management** — Organize your items into custom folders with quick navigation.
 - **Image preview** — View photos inside the app with full-resolution pinch-to-zoom and pan support.
@@ -56,9 +56,9 @@
 
 ## 📦 App Information
 
-- **Version**: `1.0.0`
-- **Status**: `Release`
-- **Storage Quota**: `Unlimited` (via Telegram Saved Messages)
+- **Version**: `1.0.0-alpha01`
+- **Status**: `Alpha (Pre-Release)`
+- **Storage Backend**: `Telegram Saved Messages`
 - **Telegram Updates**: [Join the Kawach Cloud Telegram group](https://t.me/Kawach_cloud)
 
 ---
