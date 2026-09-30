@@ -70,18 +70,6 @@ class KawachViewModel(
         initialValue = ThemeMode.SYSTEM
     )
 
-    val configuredApiId: StateFlow<String> = preferenceManager.apiIdFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = preferenceManager.getSyncApiId()
-    )
-
-    val configuredApiHash: StateFlow<String> = preferenceManager.apiHashFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = preferenceManager.getSyncApiHash()
-    )
-
     // Country selection for phone login
     private val _selectedCountry = MutableStateFlow<CountryCode>(CountryRepository.DEFAULT_COUNTRY)
     val selectedCountry: StateFlow<CountryCode> = _selectedCountry.asStateFlow()
@@ -248,17 +236,6 @@ class KawachViewModel(
         viewModelScope.launch {
             preferenceManager.setThemeMode(mode)
         }
-    }
-
-    fun updateApiCredentials(apiId: String, apiHash: String) {
-        val cleanId = apiId.trim()
-        val cleanHash = apiHash.trim()
-        if (cleanId.isNotBlank() && cleanId.toIntOrNull() == null) {
-            emitMessage("API ID must be a numeric value")
-            return
-        }
-        repository.updateApiCredentials(cleanId, cleanHash)
-        emitMessage("Telegram API credentials updated. Reconnecting to Telegram...")
     }
 
     fun resetAuthState() {

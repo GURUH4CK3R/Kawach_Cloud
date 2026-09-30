@@ -3,36 +3,39 @@ package com.kawach.cloud.data.telegram
 import com.kawach.cloud.BuildConfig
 
 object TelegramConstants {
-    // Official Telegram open client credentials (Telegram Desktop MTProto API)
-    // Built directly into Kawach Cloud so NO regular user needs to configure or enter credentials.
-    const val OFFICIAL_API_ID = 17349
-    const val OFFICIAL_API_HASH = "344583e45741c457fe1862106095a5eb"
 
     val API_ID: Int by lazy {
         try {
             val idStr = BuildConfig.TELEGRAM_API_ID
-            if (!idStr.isNullOrBlank() && idStr != "0" && idStr != "94575" && idStr != "6") {
-                idStr.toInt()
+            if (!idStr.isNullOrBlank() && idStr != "0" && idStr != "UNCONFIGURED") {
+                val parsed = idStr.trim().toIntOrNull() ?: 0
+                if (parsed > 0) parsed else 0
             } else {
-                OFFICIAL_API_ID
+                0
             }
         } catch (e: Exception) {
-            OFFICIAL_API_ID
+            0
         }
     }
 
     val API_HASH: String by lazy {
         try {
             val hashStr = BuildConfig.TELEGRAM_API_HASH
-            if (!hashStr.isNullOrBlank() && hashStr != "a3406de8d1717142218bb14d800e635b" && hashStr != "eb06d4abfb49dc3eeb1aeb98ae0f581e") {
-                hashStr
+            if (!hashStr.isNullOrBlank() && hashStr != "UNCONFIGURED" && hashStr != "0") {
+                hashStr.trim()
             } else {
-                OFFICIAL_API_HASH
+                ""
             }
         } catch (e: Exception) {
-            OFFICIAL_API_HASH
+            ""
         }
     }
+
+    fun isApiIdPresent(): Boolean = API_ID != 0
+    fun isApiIdValid(): Boolean = API_ID > 0
+    fun isApiHashPresent(): Boolean = API_HASH.isNotBlank()
+    fun isApiHashValidLength(): Boolean = API_HASH.length >= 16
+    fun isApiConfigured(): Boolean = isApiIdValid() && isApiHashPresent() && isApiHashValidLength()
 
     const val APPLICATION_NAME = "Kawach Cloud"
     const val APPLICATION_VERSION = "10.0"

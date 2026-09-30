@@ -60,46 +60,20 @@ class TelegramClientManager(
     private val pendingUploadCompletions = ConcurrentHashMap<Long, kotlinx.coroutines.CompletableDeferred<TdApi.Message>>()
 
     fun getEffectiveApiId(): Int {
-        val custom = preferenceManager.getSyncApiId()
-        if (custom.isNotBlank()) {
-            val parsed = custom.toIntOrNull()
-            if (parsed != null && parsed > 0) return parsed
-        }
         return TelegramConstants.API_ID
     }
 
     fun getEffectiveApiHash(): String {
-        val custom = preferenceManager.getSyncApiHash()
-        if (custom.isNotBlank()) {
-            return custom
-        }
         return TelegramConstants.API_HASH
     }
 
     fun resetToPhoneInput() {
-        _authState.value = TelegramAuthState.WaitingPhoneNumber
-    }
-
-    fun updateApiCredentials(apiId: String, apiHash: String) {
-        preferenceManager.saveSyncApiCredentials(apiId, apiHash)
-        scope.launch {
-            try {
-                preferenceManager.saveApiCredentials(apiId, apiHash)
-            } catch (e: Exception) {}
-
-            try {
-                client?.send(TdApi.Close(), null)
-            } catch (e: Exception) {}
-            client = null
-
-            // Delete old session DB so TDLib accepts fresh SetTdlibParameters
-            try {
-                databaseDir.deleteRecursively()
-                databaseDir.mkdirs()
-            } catch (e: Exception) {}
-
-            _authState.value = TelegramAuthState.Initializing
-            initClient()
+        if (!TelegramConstants.isApiConfigured()) {
+            _authState.value = TelegramAuthState.Error(
+                "Telegram API credentials are not configured in build configuration (TELEGRAM_API_ID / TELEGRAM_API_HASH missing or invalid). Please configure valid Telegram API credentials in the AI Studio Secrets panel."
+            )
+        } else {
+            _authState.value = TelegramAuthState.WaitingPhoneNumber
         }
     }
 
@@ -183,6 +157,27 @@ class TelegramClientManager(
 
         when (state) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> {
+                val effectiveId = getEffectiveApiId()
+                val effectiveHash = getEffectiveApiHash()
+
+                val isApiIdPresent = effectiveId != 0
+                val isApiIdValid = effectiveId > 0
+                val isApiHashPresent = effectiveHash.isNotBlank()
+                val isApiHashValidLength = effectiveHash.length >= 16
+
+                Log.d("KawachAuth", "TDLib parameters initialization check:")
+                Log.d("KawachAuth", "API ID present: $isApiIdPresent")
+                Log.d("KawachAuth", "API ID valid: $isApiIdValid")
+                Log.d("KawachAuth", "API hash present: $isApiHashPresent")
+                Log.d("KawachAuth", "API hash valid length: $isApiHashValidLength")
+
+                if (!isApiIdValid || !isApiHashPresent || !isApiHashValidLength) {
+                    val errorMsg = "Telegram API credentials are not configured in build configuration (TELEGRAM_API_ID / TELEGRAM_API_HASH missing or invalid). Please configure valid Telegram API credentials in the AI Studio Secrets panel."
+                    Log.e("KawachAuth", errorMsg)
+                    _authState.value = TelegramAuthState.Error(errorMsg)
+                    return
+                }
+
                 val params = TdApi.SetTdlibParameters()
                 params.useTestDc = false
                 params.databaseDirectory = databaseDir.absolutePath
@@ -192,8 +187,8 @@ class TelegramClientManager(
                 params.useChatInfoDatabase = true
                 params.useMessageDatabase = true
                 params.useSecretChats = false
-                params.apiId = getEffectiveApiId()
-                params.apiHash = getEffectiveApiHash()
+                params.apiId = effectiveId
+                params.apiHash = effectiveHash
                 params.systemLanguageCode = TelegramConstants.SYSTEM_LANGUAGE
                 params.deviceModel = Build.MODEL.ifBlank { "Android" }
                 params.systemVersion = Build.VERSION.RELEASE.ifBlank { "14.0" }
@@ -201,11 +196,7 @@ class TelegramClientManager(
 
                 send(params) { result ->
                     if (result is TdApi.Error) {
-                        val msg = if (result.message.contains("API_ID_INVALID", ignoreCase = true)) {
-                            "Unable to connect to Telegram network. Please check your internet connection and try again."
-                        } else {
-                            "Connection error: ${result.message}"
-                        }
+                        val msg = parseTelegramError(result.message)
                         _authState.value = TelegramAuthState.Error(msg)
                     }
                 }
@@ -488,8 +479,10 @@ class TelegramClientManager(
                 val seconds = Regex("\\d+").find(raw)?.value ?: "several"
                 "Telegram rate limit: FLOOD_WAIT. Please wait $seconds seconds before requesting another code."
             }
-            raw.contains("API_ID_INVALID", ignoreCase = true) || raw.contains("API_ID_PUBLISHED_FLOOD", ignoreCase = true) ->
-                "Telegram network connection error ($raw). Please try again shortly or check your internet connection."
+            raw.contains("API_ID_PUBLISHED_FLOOD", ignoreCase = true) ->
+                "Telegram API Rate Limit (API_ID_PUBLISHED_FLOOD): This shared Telegram API ID has reached Telegram's published authorization flood limit. Please configure your own Telegram API credentials (from https://my.telegram.org) in Custom API Settings or try again later."
+            raw.contains("API_ID_INVALID", ignoreCase = true) ->
+                "Telegram API credentials invalid. Please check your Telegram API ID and API Hash."
             raw.contains("NETWORK", ignoreCase = true) || raw.contains("CONNECTION", ignoreCase = true) ->
                 "Network connection issue connecting to Telegram MTProto servers. Check your internet connection."
             else -> raw

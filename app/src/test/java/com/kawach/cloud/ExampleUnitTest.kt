@@ -185,5 +185,22 @@ class ExampleUnitTest {
     org.junit.Assert.assertFalse(doc.isImage)
     org.junit.Assert.assertFalse(doc.isVideo)
   }
+
+  @Test
+  fun telegramConstants_safeValidationFunctions() {
+    val isPresent = com.kawach.cloud.data.telegram.TelegramConstants.isApiIdPresent()
+    val isValid = com.kawach.cloud.data.telegram.TelegramConstants.isApiIdValid()
+    val isHashPresent = com.kawach.cloud.data.telegram.TelegramConstants.isApiHashPresent()
+    val isHashValid = com.kawach.cloud.data.telegram.TelegramConstants.isApiHashValidLength()
+
+    // When unconfigured / default (0, UNCONFIGURED):
+    // API ID should be 0 and valid should be false
+    // API Hash should be "" and valid should be false
+    if (!com.kawach.cloud.data.telegram.TelegramConstants.isApiConfigured()) {
+      org.junit.Assert.assertFalse(isValid)
+      org.junit.Assert.assertEquals(0, com.kawach.cloud.data.telegram.TelegramConstants.API_ID)
+      org.junit.Assert.assertEquals("", com.kawach.cloud.data.telegram.TelegramConstants.API_HASH)
+    }
+  }
 }
 

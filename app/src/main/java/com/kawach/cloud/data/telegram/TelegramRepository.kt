@@ -531,10 +531,6 @@ class TelegramRepository(
         return dest
     }
 
-    fun updateApiCredentials(apiId: String, apiHash: String) {
-        clientManager.updateApiCredentials(apiId, apiHash)
-    }
-
     fun resetAuthState() {
         clientManager.resetToPhoneInput()
     }
