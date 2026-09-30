@@ -1,4 +1,5 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
@@ -20,6 +21,32 @@ android {
     versionName = "1.0.0-alpha01"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    // AI Studio Secrets / Build Environment credentials bridge
+    val envApiId = System.getenv("TELEGRAM_API_ID")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
+      ?: (project.findProperty("TELEGRAM_API_ID") as? String)?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
+
+    val envApiHash = System.getenv("TELEGRAM_API_HASH")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
+      ?: (project.findProperty("TELEGRAM_API_HASH") as? String)?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
+
+    // Check local .env file fallback for local development if environment variables are not set
+    val dotEnvFile = rootProject.file(".env")
+    val dotEnvProps = Properties().apply {
+      if (dotEnvFile.exists()) {
+        dotEnvFile.inputStream().use { load(it) }
+      }
+    }
+
+    val finalApiId = envApiId
+      ?: dotEnvProps.getProperty("TELEGRAM_API_ID")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
+      ?: "0"
+
+    val finalApiHash = envApiHash
+      ?: dotEnvProps.getProperty("TELEGRAM_API_HASH")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
+      ?: "UNCONFIGURED"
+
+    buildConfigField("String", "TELEGRAM_API_ID", "\"$finalApiId\"")
+    buildConfigField("String", "TELEGRAM_API_HASH", "\"$finalApiHash\"")
   }
 
   val releaseKeystorePath = (project.findProperty("KAWACH_RELEASE_STORE_FILE") as? String)
@@ -101,6 +128,21 @@ secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+  ignoreList.add("TELEGRAM_API_ID")
+  ignoreList.add("TELEGRAM_API_HASH")
+}
+
+tasks.register("verifyTelegramCredentials") {
+  doLast {
+    val apiIdEnv = System.getenv("TELEGRAM_API_ID")
+    val apiHashEnv = System.getenv("TELEGRAM_API_HASH")
+    val isIdConfigured = !apiIdEnv.isNullOrBlank() && apiIdEnv != "0" && apiIdEnv != "UNCONFIGURED" && apiIdEnv.toIntOrNull()?.let { it > 0 } == true
+    val isHashConfigured = !apiHashEnv.isNullOrBlank() && apiHashEnv != "UNCONFIGURED" && apiHashEnv.length >= 16
+
+    println("VERIFICATION_REPORT: Telegram API ID present and valid: $isIdConfigured")
+    println("VERIFICATION_REPORT: Telegram API Hash present and valid: $isHashConfigured")
+    println("VERIFICATION_REPORT: Source: ${if (isIdConfigured && isHashConfigured) "AI Studio Environment Variables" else "Unconfigured"}")
+  }
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
