@@ -9,6 +9,40 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+// AI Studio Secrets / Build Environment credentials bridge
+fun cleanSecret(value: String?): String? {
+  return value?.trim()?.removeSurrounding("\"")?.removeSurrounding("'")?.trim()?.takeIf {
+    it.isNotBlank() && it != "0" && it != "UNCONFIGURED"
+  }
+}
+
+val envApiId = cleanSecret(System.getenv("TELEGRAM_API_ID"))
+  ?: cleanSecret(project.findProperty("TELEGRAM_API_ID") as? String)
+
+val envApiHash = cleanSecret(System.getenv("TELEGRAM_API_HASH"))
+  ?: cleanSecret(project.findProperty("TELEGRAM_API_HASH") as? String)
+
+// Check local .env file fallback for local development if environment variables are not set
+val dotEnvFile = listOf(
+  rootProject.file(".env"),
+  file("${rootDir}/.env"),
+  file(".env")
+).firstOrNull { it.exists() }
+
+val dotEnvProps = Properties().apply {
+  if (dotEnvFile != null && dotEnvFile.exists()) {
+    dotEnvFile.inputStream().use { load(it) }
+  }
+}
+
+val finalApiId = envApiId
+  ?: cleanSecret(dotEnvProps.getProperty("TELEGRAM_API_ID"))
+  ?: "0"
+
+val finalApiHash = envApiHash
+  ?: cleanSecret(dotEnvProps.getProperty("TELEGRAM_API_HASH"))
+  ?: "UNCONFIGURED"
+
 android {
   namespace = "com.kawach.cloud"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -21,29 +55,6 @@ android {
     versionName = "1.0.0-alpha01"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-    // AI Studio Secrets / Build Environment credentials bridge
-    val envApiId = System.getenv("TELEGRAM_API_ID")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
-      ?: (project.findProperty("TELEGRAM_API_ID") as? String)?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
-
-    val envApiHash = System.getenv("TELEGRAM_API_HASH")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
-      ?: (project.findProperty("TELEGRAM_API_HASH") as? String)?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
-
-    // Check local .env file fallback for local development if environment variables are not set
-    val dotEnvFile = rootProject.file(".env")
-    val dotEnvProps = Properties().apply {
-      if (dotEnvFile.exists()) {
-        dotEnvFile.inputStream().use { load(it) }
-      }
-    }
-
-    val finalApiId = envApiId
-      ?: dotEnvProps.getProperty("TELEGRAM_API_ID")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
-      ?: "0"
-
-    val finalApiHash = envApiHash
-      ?: dotEnvProps.getProperty("TELEGRAM_API_HASH")?.takeIf { it.isNotBlank() && it != "0" && it != "UNCONFIGURED" }
-      ?: "UNCONFIGURED"
 
     buildConfigField("String", "TELEGRAM_API_ID", "\"$finalApiId\"")
     buildConfigField("String", "TELEGRAM_API_HASH", "\"$finalApiHash\"")
@@ -145,17 +156,26 @@ secrets {
   ignoreList.add("TELEGRAM_API_HASH")
 }
 
-tasks.register("verifyTelegramCredentials") {
-  doLast {
-    val apiIdEnv = System.getenv("TELEGRAM_API_ID")
-    val apiHashEnv = System.getenv("TELEGRAM_API_HASH")
-    val isIdConfigured = !apiIdEnv.isNullOrBlank() && apiIdEnv != "0" && apiIdEnv != "UNCONFIGURED" && apiIdEnv.toIntOrNull()?.let { it > 0 } == true
-    val isHashConfigured = !apiHashEnv.isNullOrBlank() && apiHashEnv != "UNCONFIGURED" && apiHashEnv.length >= 16
+open class VerifyTelegramTask : DefaultTask() {
+  @get:Internal
+  var isIdConfigured: Boolean = false
 
-    println("VERIFICATION_REPORT: Telegram API ID present and valid: $isIdConfigured")
-    println("VERIFICATION_REPORT: Telegram API Hash present and valid: $isHashConfigured")
-    println("VERIFICATION_REPORT: Source: ${if (isIdConfigured && isHashConfigured) "AI Studio Environment Variables" else "Unconfigured"}")
+  @get:Internal
+  var isHashConfigured: Boolean = false
+
+  @TaskAction
+  fun verify() {
+    println("Telegram API ID configured: $isIdConfigured")
+    println("Telegram API Hash configured: $isHashConfigured")
+    if (!isIdConfigured || !isHashConfigured) {
+      throw GradleException("Missing required Telegram API credentials: TELEGRAM_API_ID / TELEGRAM_API_HASH. Please configure them in AI Studio Secrets or GitHub Repository Secrets.")
+    }
   }
+}
+
+tasks.register<VerifyTelegramTask>("verifyTelegramCredentials") {
+  isIdConfigured = (finalApiId != "0" && finalApiId != "UNCONFIGURED" && finalApiId.toIntOrNull()?.let { it > 0 } == true)
+  isHashConfigured = (finalApiHash != "UNCONFIGURED" && finalApiHash.length >= 16)
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }

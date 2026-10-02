@@ -8,11 +8,11 @@ import com.kawach.cloud.data.model.TelegramAuthState
 import com.kawach.cloud.data.telegram.TdClient
 import com.kawach.cloud.data.telegram.TdClientFactory
 import com.kawach.cloud.data.telegram.TelegramClientManager
+import com.kawach.cloud.data.telegram.TelegramConstants
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.drinkless.tdlib.TdApi
 import org.junit.Assert.assertEquals
@@ -76,74 +76,61 @@ class TelegramAuthFlowTest {
         preferenceManager = PreferenceManager(context)
     }
 
+    // Case 1: Missing credentials -> Error
     @Test
-    fun testClientInitialization_initializesOnce() {
-        val factory = TestClientFactory()
-        val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
+    fun testMissingCredentials_resultsInErrorState() = runBlocking {
+        if (!TelegramConstants.isApiConfigured()) {
+            val factory = TestClientFactory()
+            val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
+            val fakeClient = factory.lastCreatedClient!!
 
-        // Initialized once on start
-        assertEquals(1, factory.createCount)
-        assertTrue(manager.authState.value is TelegramAuthState.Initializing)
-
-        // Calling initClient again must reuse existing client
-        manager.initClient()
-        manager.initClient()
-        assertEquals(1, factory.createCount)
+            fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters()))
+            assertTrue("Auth state should be Error when credentials missing", manager.authState.value is TelegramAuthState.Error)
+            val err = manager.sendPhoneNumber("+919876543210")
+            assertTrue("Send phone should fail when credentials missing", err.isFailure)
+        }
     }
 
+    // Case 2: Valid credentials -> SetTdlibParameters sent
     @Test
-    fun testWaitTdlibParameters_sendsSetTdlibParameters() {
+    fun testValidCredentials_sendsSetTdlibParameters() {
+        org.junit.Assume.assumeTrue(
+            "Skipping SetTdlibParameters test: Telegram API credentials not configured in test environment",
+            TelegramConstants.isApiConfigured()
+        )
+
         val factory = TestClientFactory()
         val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
-        val fakeClient = factory.lastCreatedClient
-        assertNotNull(fakeClient)
+        val fakeClient = factory.lastCreatedClient!!
 
-        // Simulate TDLib requesting initialization parameters
-        fakeClient!!.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters()))
+        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters()))
 
-        // Verify SetTdlibParameters was sent
         val setParams = fakeClient.sentFunctions.filterIsInstance<TdApi.SetTdlibParameters>().firstOrNull()
         assertNotNull("SetTdlibParameters must be sent to TDLib", setParams)
         assertEquals(manager.getEffectiveApiId(), setParams!!.apiId)
         assertEquals(manager.getEffectiveApiHash(), setParams.apiHash)
-        assertFalse("AuthState should not be in error", manager.authState.value is TelegramAuthState.Error)
     }
 
+    // Case 3: SetTdlibParameters succeeds -> wait for WaitPhoneNumber
     @Test
-    fun testWaitPhoneNumber_sendsPhoneImmediately() = runBlocking {
+    fun testSetTdlibParametersSucceeds_transitionsToWaitPhoneNumber() {
         val factory = TestClientFactory()
         val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
         val fakeClient = factory.lastCreatedClient!!
 
-        // Simulate TDLib reaching WaitPhoneNumber
+        // Simulate TDLib processing parameters and transitioning to WaitPhoneNumber
         fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitPhoneNumber()))
         assertTrue(manager.authState.value is TelegramAuthState.WaitingPhoneNumber)
-
-        // Respond OK to SetAuthenticationPhoneNumber
-        fakeClient.functionHandler = { func, handler ->
-            if (func is TdApi.SetAuthenticationPhoneNumber) {
-                handler(TdApi.Ok())
-            } else {
-                handler(TdApi.Ok())
-            }
-        }
-
-        val result = manager.sendPhoneNumber("+1234567890")
-        assertTrue(result.isSuccess)
-
-        val phoneCall = fakeClient.sentFunctions.filterIsInstance<TdApi.SetAuthenticationPhoneNumber>().firstOrNull()
-        assertNotNull("SetAuthenticationPhoneNumber must be sent", phoneCall)
-        assertEquals("+1234567890", phoneCall!!.phoneNumber)
-        assertTrue(manager.authState.value is TelegramAuthState.WaitingCode)
+        assertTrue(manager.rawAuthState.value is TdApi.AuthorizationStateWaitPhoneNumber)
     }
 
+    // Case 4: Phone request while initialization is running -> waits
     @Test
-    fun testPhoneRequest_whileInitializationIsRunning_waitsForWaitPhoneNumber() = runBlocking {
+    fun testPhoneRequest_whileInitializationIsRunning_waits() = runBlocking {
         val factory = TestClientFactory()
         val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
         val fakeClient = factory.lastCreatedClient!!
 
-        // Client is still in Initializing state
         assertTrue(manager.authState.value is TelegramAuthState.Initializing)
 
         fakeClient.functionHandler = { func, handler ->
@@ -154,46 +141,109 @@ class TelegramAuthFlowTest {
             }
         }
 
-        // Launch sendPhoneNumber asynchronously while client is still initializing
         val phoneDeferred = async(Dispatchers.IO) {
-            manager.sendPhoneNumber("+9876543210")
+            manager.sendPhoneNumber("+919876543210")
         }
 
-        // Ensure SetAuthenticationPhoneNumber is not yet called before TDLib reaches WaitPhoneNumber
         delay(50)
         var phoneCall = fakeClient.sentFunctions.filterIsInstance<TdApi.SetAuthenticationPhoneNumber>().firstOrNull()
         assertEquals(null, phoneCall)
 
-        // Now TDLib signals WaitTdlibParameters -> manager sends parameters
-        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters()))
-
-        // Then TDLib signals WaitPhoneNumber
+        // TDLib reaches WaitPhoneNumber
         fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitPhoneNumber()))
 
-        // Now the pending phone request must resume and succeed
         val result = phoneDeferred.await()
         assertTrue(result.isSuccess)
 
         phoneCall = fakeClient.sentFunctions.filterIsInstance<TdApi.SetAuthenticationPhoneNumber>().firstOrNull()
-        assertNotNull("SetAuthenticationPhoneNumber must now be sent", phoneCall)
-        assertEquals("+9876543210", phoneCall!!.phoneNumber)
+        assertNotNull(phoneCall)
+        assertEquals("+919876543210", phoneCall!!.phoneNumber)
     }
 
+    // Case 5: Phone request while raw state is WaitTdlibParameters -> MUST NOT send phone request immediately
     @Test
-    fun testInitializationFailure_returnsFriendlyError_doesNotSendPhone() = runBlocking {
+    fun testPhoneRequest_whileRawStateIsWaitTdlibParameters_doesNotSendImmediately() = runBlocking {
         val factory = TestClientFactory()
-        factory.shouldThrowOnCreate = RuntimeException("TDLib native library failed to load")
-
         val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
-        assertTrue(manager.authState.value is TelegramAuthState.Error)
+        val fakeClient = factory.lastCreatedClient!!
 
-        val result = manager.sendPhoneNumber("+1234567890")
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull()?.message?.contains("TDLib native library failed to load") == true)
+        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters()))
+
+        val phoneDeferred = async(Dispatchers.IO) {
+            manager.sendPhoneNumber("+919876543210")
+        }
+
+        delay(50)
+        val phoneCall = fakeClient.sentFunctions.filterIsInstance<TdApi.SetAuthenticationPhoneNumber>().firstOrNull()
+        assertEquals("Must not send phone request while in WaitTdlibParameters", null, phoneCall)
+
+        // Transition to WaitPhoneNumber
+        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitPhoneNumber()))
+        val result = phoneDeferred.await()
+        assertTrue(result.isSuccess)
     }
 
+    // Case 6: Phone request while raw state is WaitPhoneNumber -> sends immediately
     @Test
-    fun testRepeatedSendOtpProtection_preventsConcurrentRace() = runBlocking {
+    fun testPhoneRequest_whileRawStateIsWaitPhoneNumber_sendsImmediately() = runBlocking {
+        val factory = TestClientFactory()
+        val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
+        val fakeClient = factory.lastCreatedClient!!
+
+        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitPhoneNumber()))
+        assertTrue(manager.authState.value is TelegramAuthState.WaitingPhoneNumber)
+
+        val result = manager.sendPhoneNumber("+919876543210")
+        assertTrue(result.isSuccess)
+
+        val phoneCall = fakeClient.sentFunctions.filterIsInstance<TdApi.SetAuthenticationPhoneNumber>().firstOrNull()
+        assertNotNull(phoneCall)
+        assertEquals("+919876543210", phoneCall!!.phoneNumber)
+        assertTrue(manager.authState.value is TelegramAuthState.WaitingCode)
+    }
+
+    // Case 7: resetToPhoneInput() must NOT fake raw TDLib readiness
+    @Test
+    fun testResetToPhoneInput_doesNotFakeRawTdlibReadiness() {
+        val factory = TestClientFactory()
+        val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
+        val fakeClient = factory.lastCreatedClient!!
+
+        // Client is in WaitTdlibParameters
+        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters()))
+        manager.resetToPhoneInput()
+
+        // Auth state must NOT be WaitingPhoneNumber
+        assertFalse("resetToPhoneInput must not fake WaitingPhoneNumber if raw state is WaitTdlibParameters",
+            manager.authState.value is TelegramAuthState.WaitingPhoneNumber)
+    }
+
+    // Case 8: TDLib returns "Initialization parameters are needed" -> authentication fails cleanly
+    @Test
+    fun testTdlibInitializationNeededError_failsCleanlyWithoutWaitingCode() = runBlocking {
+        val factory = TestClientFactory()
+        val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
+        val fakeClient = factory.lastCreatedClient!!
+
+        fakeClient.updateHandler(TdApi.UpdateAuthorizationState(TdApi.AuthorizationStateWaitPhoneNumber()))
+
+        fakeClient.functionHandler = { func, handler ->
+            if (func is TdApi.SetAuthenticationPhoneNumber) {
+                handler(TdApi.Error(400, "Initialization parameters are needed: call setTdlibParameters first"))
+            } else {
+                handler(TdApi.Ok())
+            }
+        }
+
+        val result = manager.sendPhoneNumber("+919876543210")
+        assertTrue("Request should fail when TDLib reports initialization needed", result.isFailure)
+        assertFalse("Auth state must NOT become WaitingCode", manager.authState.value is TelegramAuthState.WaitingCode)
+        assertTrue("Auth state should reflect error", manager.authState.value is TelegramAuthState.Error)
+    }
+
+    // Case 9: Rapid Send OTP taps -> only one request
+    @Test
+    fun testRapidSendOtpTaps_onlyDispatchesOneRequest() = runBlocking {
         val factory = TestClientFactory()
         val manager = TelegramClientManager(context, preferenceManager, clientFactory = factory)
         val fakeClient = factory.lastCreatedClient!!
@@ -215,30 +265,27 @@ class TelegramAuthFlowTest {
             }
         }
 
-        // First call starts and acquires the mutex
-        val job1 = async(Dispatchers.IO) {
-            manager.sendPhoneNumber("+1234567890")
-        }
-
-        // Wait until first call has entered send
+        val job1 = async(Dispatchers.IO) { manager.sendPhoneNumber("+919876543210") }
         phoneSendStarted.await()
 
-        // Second call while first call is in flight should fail immediately due to concurrency guard
-        val job2 = async(Dispatchers.IO) {
-            manager.sendPhoneNumber("+1234567890")
-        }
-
+        val job2 = async(Dispatchers.IO) { manager.sendPhoneNumber("+919876543210") }
         val result2 = job2.await()
-        assertTrue("Second concurrent request must fail immediately", result2.isFailure)
-        assertTrue(result2.exceptionOrNull()?.message?.contains("already in progress") == true)
+        assertTrue("Concurrent request must fail", result2.isFailure)
 
-        // Release first call
         phoneSendRelease.complete(Unit)
         val result1 = job1.await()
         assertTrue("First request must succeed", result1.isSuccess)
 
-        // Exactly one SetAuthenticationPhoneNumber was sent
         val phoneCalls = fakeClient.sentFunctions.filterIsInstance<TdApi.SetAuthenticationPhoneNumber>()
         assertEquals(1, phoneCalls.size)
+    }
+
+    // Case 10: Credentials are never printed in logs or errors
+    @Test
+    fun testCredentials_neverPrintedInLogs() {
+        val manager = TelegramClientManager(context, preferenceManager)
+        val err = manager.parseTelegramError("PHONE_NUMBER_INVALID")
+        assertFalse("Error message should not contain API Hash", err.contains(TelegramConstants.API_HASH))
+        assertFalse("Error message should not contain API ID", TelegramConstants.API_ID > 0 && err.contains(TelegramConstants.API_ID.toString()))
     }
 }

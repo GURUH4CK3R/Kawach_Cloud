@@ -108,7 +108,44 @@ class TelegramClientManager(
     }
 
     fun resetToPhoneInput() {
-        _authState.value = TelegramAuthState.WaitingPhoneNumber
+        if (client == null || _rawAuthState.value is TdApi.AuthorizationStateClosed) {
+            initClient()
+            return
+        }
+        when (_rawAuthState.value) {
+            is TdApi.AuthorizationStateWaitPhoneNumber -> {
+                _authState.value = TelegramAuthState.WaitingPhoneNumber
+            }
+            is TdApi.AuthorizationStateWaitCode,
+            is TdApi.AuthorizationStateWaitPassword -> {
+                restartClient()
+            }
+            is TdApi.AuthorizationStateWaitTdlibParameters -> {
+                if (!TelegramConstants.isApiConfigured()) {
+                    val errorMsg = "Telegram API credentials are not configured in build configuration (TELEGRAM_API_ID / TELEGRAM_API_HASH missing or invalid). Please configure valid Telegram API credentials in the AI Studio Secrets panel."
+                    _authState.value = TelegramAuthState.Error(errorMsg)
+                } else {
+                    _authState.value = TelegramAuthState.Initializing
+                    handleAuthorizationState(TdApi.AuthorizationStateWaitTdlibParameters())
+                }
+            }
+            else -> {
+                if (_authState.value is TelegramAuthState.Error && TelegramConstants.isApiConfigured()) {
+                    restartClient()
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    fun restartClient() {
+        try {
+            client?.send(TdApi.Close()) {}
+        } catch (_: Exception) {}
+        client = null
+        _rawAuthState.value = null
+        _authState.value = TelegramAuthState.Initializing
+        initClient()
     }
 
     init {
@@ -176,18 +213,17 @@ class TelegramClientManager(
     private fun handleAuthorizationState(state: TdApi.AuthorizationState) {
         _rawAuthState.value = state
         if (BuildConfig.DEBUG) {
-            val stateName = when (state) {
-                is TdApi.AuthorizationStateWaitTdlibParameters -> "WAIT_TDLIB_PARAMETERS"
-                is TdApi.AuthorizationStateWaitPhoneNumber -> "WAIT_PHONE_NUMBER"
-                is TdApi.AuthorizationStateWaitCode -> "WAIT_CODE"
-                is TdApi.AuthorizationStateWaitPassword -> "WAIT_PASSWORD"
-                is TdApi.AuthorizationStateReady -> "READY"
-                is TdApi.AuthorizationStateLoggingOut -> "LOGGING_OUT"
-                is TdApi.AuthorizationStateClosing -> "CLOSING"
-                is TdApi.AuthorizationStateClosed -> "CLOSED"
-                else -> state.javaClass.simpleName
+            when (state) {
+                is TdApi.AuthorizationStateWaitTdlibParameters -> Log.d("KawachAuth", "AUTH STATE: WAIT_TDLIB_PARAMETERS")
+                is TdApi.AuthorizationStateWaitPhoneNumber -> Log.d("KawachAuth", "AUTH STATE: WAIT_PHONE_NUMBER")
+                is TdApi.AuthorizationStateWaitCode -> Log.d("KawachAuth", "AUTH STATE: WAIT_CODE")
+                is TdApi.AuthorizationStateWaitPassword -> Log.d("KawachAuth", "AUTH STATE: WAIT_PASSWORD")
+                is TdApi.AuthorizationStateReady -> Log.d("KawachAuth", "AUTH STATE: READY")
+                is TdApi.AuthorizationStateLoggingOut -> Log.d("KawachAuth", "AUTH STATE: LOGGING_OUT")
+                is TdApi.AuthorizationStateClosing -> Log.d("KawachAuth", "AUTH STATE: CLOSING")
+                is TdApi.AuthorizationStateClosed -> Log.d("KawachAuth", "AUTH STATE: CLOSED")
+                else -> Log.d("KawachAuth", "AUTH STATE: ${state.javaClass.simpleName}")
             }
-            Log.d("KawachAuth", "AUTH STATE: $stateName")
         }
 
         when (state) {
@@ -204,6 +240,10 @@ class TelegramClientManager(
                     Log.e("KawachAuth", errorMsg)
                     _authState.value = TelegramAuthState.Error(errorMsg)
                     return
+                }
+
+                if (BuildConfig.DEBUG) {
+                    Log.d("KawachAuth", "SET_TDLIB_PARAMETERS: START")
                 }
 
                 val params = TdApi.SetTdlibParameters()
@@ -225,7 +265,12 @@ class TelegramClientManager(
                 send(params) { result ->
                     if (result is TdApi.Error) {
                         val msg = parseTelegramError(result.message)
+                        Log.e("KawachAuth", "SET_TDLIB_PARAMETERS: ERROR - $msg")
                         _authState.value = TelegramAuthState.Error(msg)
+                    } else {
+                        if (BuildConfig.DEBUG) {
+                            Log.d("KawachAuth", "SET_TDLIB_PARAMETERS: SUCCESS")
+                        }
                     }
                 }
             }
@@ -389,31 +434,40 @@ class TelegramClientManager(
     }
 
     private suspend fun waitForWaitPhoneNumberState(): Result<Unit> {
-        // Fast path: if TDLib is already in WaitPhoneNumber, proceed immediately without waiting
-        if (_rawAuthState.value is TdApi.AuthorizationStateWaitPhoneNumber ||
-            _authState.value is TelegramAuthState.WaitingPhoneNumber) {
+        // Fast path: if TDLib raw state is already WaitPhoneNumber, proceed immediately without waiting
+        if (_rawAuthState.value is TdApi.AuthorizationStateWaitPhoneNumber) {
             return Result.success(Unit)
         }
 
+        // If credentials are not configured, TDLib cannot proceed to WaitPhoneNumber
+        if (!TelegramConstants.isApiConfigured()) {
+            val err = "Telegram API credentials are not configured in build configuration (TELEGRAM_API_ID / TELEGRAM_API_HASH missing or invalid). Please configure valid Telegram API credentials in the AI Studio Secrets panel."
+            return Result.failure(Exception(err))
+        }
+
         val current = _authState.value
-        if (current is TelegramAuthState.Error) {
+        if (current is TelegramAuthState.Error && !current.message.contains("Invalid phone") && !current.message.contains("FLOOD_WAIT")) {
             return Result.failure(Exception(current.message))
         }
 
         return try {
             withTimeout(30_000L) {
-                // Event-driven suspension waiting for WaitingPhoneNumber or an Error state.
-                // Uses coroutine Flow.first suspension (never fixed delays, sleep, or polling).
-                val terminalState = _authState.first { state ->
-                    state is TelegramAuthState.WaitingPhoneNumber ||
-                    state is TelegramAuthState.Error ||
-                    state is TelegramAuthState.Closed
+                // Event-driven suspension waiting for rawAuthState to reach WaitPhoneNumber
+                // or authState to report an Error / Closed
+                val terminalState = kotlinx.coroutines.flow.combine(_rawAuthState, _authState) { raw, ui ->
+                    Pair(raw, ui)
+                }.first { (raw, ui) ->
+                    raw is TdApi.AuthorizationStateWaitPhoneNumber ||
+                    (ui is TelegramAuthState.Error && !ui.message.contains("Invalid phone") && !ui.message.contains("FLOOD_WAIT")) ||
+                    ui is TelegramAuthState.Closed ||
+                    raw is TdApi.AuthorizationStateClosed
                 }
 
-                when (terminalState) {
-                    is TelegramAuthState.WaitingPhoneNumber -> Result.success(Unit)
-                    is TelegramAuthState.Error -> Result.failure(Exception(terminalState.message))
-                    is TelegramAuthState.Closed -> Result.failure(Exception("Telegram client closed unexpectedly"))
+                when {
+                    terminalState.first is TdApi.AuthorizationStateWaitPhoneNumber -> Result.success(Unit)
+                    terminalState.second is TelegramAuthState.Error -> Result.failure(Exception((terminalState.second as TelegramAuthState.Error).message))
+                    terminalState.second is TelegramAuthState.Closed || terminalState.first is TdApi.AuthorizationStateClosed ->
+                        Result.failure(Exception("Telegram client closed unexpectedly"))
                     else -> Result.failure(Exception("Telegram client is not ready"))
                 }
             }
@@ -441,21 +495,43 @@ class TelegramClientManager(
                 initClient()
             }
 
+            // If credentials are unconfigured, fail fast with clear actionable error
+            if (!TelegramConstants.isApiConfigured()) {
+                val configErr = "Telegram API credentials are not configured in build configuration (TELEGRAM_API_ID / TELEGRAM_API_HASH missing or invalid). Please configure valid Telegram API credentials in the AI Studio Secrets panel."
+                _authState.value = TelegramAuthState.Error(configErr)
+                return Result.failure(Exception(configErr))
+            }
+
             // If already in an Error state from initialization/credentials, abort without calling TDLib
             val currentAuth = _authState.value
-            if (currentAuth is TelegramAuthState.Error) {
-                return Result.failure(Exception(currentAuth.message))
+            if (currentAuth is TelegramAuthState.Error && !currentAuth.message.contains("Invalid phone") && !currentAuth.message.contains("FLOOD_WAIT")) {
+                if (currentAuth.message.contains("Telegram API credentials") || currentAuth.message.contains("TDLib native library")) {
+                    return Result.failure(Exception(currentAuth.message))
+                }
             }
 
             // Wait for actual TDLib state AuthorizationStateWaitPhoneNumber
             val readyResult = waitForWaitPhoneNumberState()
             if (!readyResult.isSuccess) {
                 val err = readyResult.exceptionOrNull()?.message ?: "Failed to initialize Telegram connection"
+                _authState.value = TelegramAuthState.Error(err)
+                return Result.failure(Exception(err))
+            }
+
+            // Double check that TDLib raw state is indeed WaitPhoneNumber before calling SetAuthenticationPhoneNumber
+            if (_rawAuthState.value !is TdApi.AuthorizationStateWaitPhoneNumber) {
+                val stateDesc = _rawAuthState.value?.javaClass?.simpleName ?: "Uninitialized"
+                val err = "Telegram client is not ready for phone number (Current state: $stateDesc). Please wait for initialization to complete."
+                _authState.value = TelegramAuthState.Error(err)
                 return Result.failure(Exception(err))
             }
 
             pendingPhoneNumber = cleanPhone
             _authState.value = TelegramAuthState.SendingPhoneNumber
+
+            if (BuildConfig.DEBUG) {
+                Log.d("KawachAuth", "SET_AUTHENTICATION_PHONE_NUMBER: START")
+            }
 
             val settings = TdApi.PhoneNumberAuthenticationSettings().apply {
                 allowFlashCall = false
@@ -467,6 +543,9 @@ class TelegramClientManager(
             withTimeout(25_000L) {
                 val result = sendAsync(TdApi.SetAuthenticationPhoneNumber(cleanPhone, settings))
                 if (result.isSuccess) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d("KawachAuth", "SET_AUTHENTICATION_PHONE_NUMBER: SUCCESS")
+                    }
                     if (_authState.value !is TelegramAuthState.WaitingCode) {
                         _authState.value = TelegramAuthState.WaitingCode(
                             phoneNumber = cleanPhone,
@@ -477,9 +556,16 @@ class TelegramClientManager(
                     Result.success(Unit)
                 } else {
                     val rawErr = result.exceptionOrNull()?.message ?: "Failed to send phone number"
-                    val friendlyErr = parseTelegramError(rawErr)
-                    _authState.value = TelegramAuthState.Error(friendlyErr)
-                    Result.failure(Exception(friendlyErr))
+                    if (rawErr.contains("Initialization parameters are needed", ignoreCase = true) ||
+                        rawErr.contains("setTdlibParameters", ignoreCase = true)) {
+                        val initErr = "Telegram initialization incomplete. Please verify API credentials and retry."
+                        _authState.value = TelegramAuthState.Error(initErr)
+                        Result.failure(Exception(initErr))
+                    } else {
+                        val friendlyErr = parseTelegramError(rawErr)
+                        _authState.value = TelegramAuthState.Error(friendlyErr)
+                        Result.failure(Exception(friendlyErr))
+                    }
                 }
             }
         } catch (e: TimeoutCancellationException) {

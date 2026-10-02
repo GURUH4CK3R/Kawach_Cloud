@@ -163,7 +163,56 @@ fun ConnectTelegramScreen(
                 borderColor = KawachPrimary.copy(alpha = 0.35f)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    when (val state = authState) {
+                    val isApiConfigured = com.kawach.cloud.data.telegram.TelegramConstants.isApiConfigured()
+
+                    if (!isApiConfigured) {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "API Credentials Required",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "Telegram MTProto API credentials (TELEGRAM_API_ID and TELEGRAM_API_HASH) are not configured in this build.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "How to configure:\n• In AI Studio: Open the Secrets panel and set TELEGRAM_API_ID and TELEGRAM_API_HASH.\n• For GitHub Actions: Add them under Settings -> Secrets and variables -> Actions.\n• Credentials can be obtained for free from https://my.telegram.org.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                GlassButton(
+                                    text = "Retry Initialization",
+                                    onClick = { viewModel.resetAuthState() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    tag = "retry_init_button"
+                                )
+                            }
+                        }
+                    } else when (val state = authState) {
                         is TelegramAuthState.Uninitialized,
                         is TelegramAuthState.Initializing -> {
                             Column(
@@ -182,9 +231,166 @@ fun ConnectTelegramScreen(
                             }
                         }
 
-                        is TelegramAuthState.WaitingPhoneNumber,
-                        is TelegramAuthState.SendingPhoneNumber,
                         is TelegramAuthState.Error -> {
+                            val isInitError = state.message.contains("initialization", ignoreCase = true) ||
+                                state.message.contains("setTdlibParameters", ignoreCase = true) ||
+                                state.message.contains("native library", ignoreCase = true)
+
+                            if (isInitError) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "Connection Error",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = state.message,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    GlassButton(
+                                        text = "Retry Connection",
+                                        onClick = { viewModel.resetAuthState() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        tag = "retry_init_button"
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Enter Phone Number",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Country Selector Button
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { showCountryDialog = true }
+                                        .testTag("country_selector_button"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(text = selectedCountry.flagEmoji, fontSize = 20.sp)
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = "${selectedCountry.countryName} (${selectedCountry.dialCode})",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = "Select country"
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                OutlinedTextField(
+                                    value = phoneInput,
+                                    onValueChange = { viewModel.setPhoneNumberInput(it) },
+                                    label = { Text("Phone Number") },
+                                    prefix = {
+                                        Text(
+                                            text = "${selectedCountry.dialCode} ",
+                                            fontWeight = FontWeight.Bold,
+                                            color = KawachPrimary
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Phone, contentDescription = null, tint = KawachPrimary)
+                                    },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Phone,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = { viewModel.sendPhoneNumber() }
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("phone_number_input")
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Authentication Error",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = state.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                GlassButton(
+                                    text = "Send Telegram OTP",
+                                    onClick = { viewModel.sendPhoneNumber() },
+                                    isLoading = false,
+                                    enabled = phoneInput.isNotBlank(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    tag = "send_otp_button"
+                                )
+                            }
+                        }
+
+                        is TelegramAuthState.WaitingPhoneNumber,
+                        is TelegramAuthState.SendingPhoneNumber -> {
                             val isSending = state is TelegramAuthState.SendingPhoneNumber
 
                             Text(
@@ -257,42 +463,6 @@ fun ConnectTelegramScreen(
                                     .fillMaxWidth()
                                     .testTag("phone_number_input")
                             )
-
-                            if (state is TelegramAuthState.Error) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Card(
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(14.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.Warning,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Authentication Error",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = state.message,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
 
                             Spacer(modifier = Modifier.height(20.dp))
 
