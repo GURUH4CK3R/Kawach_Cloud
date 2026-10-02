@@ -645,7 +645,10 @@ class TelegramClientManager(
             raw.contains("PASSWORD_HASH_INVALID", ignoreCase = true) ->
                 "Incorrect Two-Step Verification (2FA) password. Please try again."
             raw.contains("FLOOD_WAIT", ignoreCase = true) -> {
-                val seconds = Regex("\\d+").find(raw)?.value ?: "several"
+                val seconds = Regex("""FLOOD_WAIT[_\s]*(\d+)""", RegexOption.IGNORE_CASE)
+                    .find(raw)?.groupValues?.getOrNull(1)
+                    ?: Regex("\\d+").find(raw)?.value
+                    ?: "several"
                 "Telegram rate limit: FLOOD_WAIT. Please wait $seconds seconds before requesting another code."
             }
             raw.contains("API_ID_PUBLISHED_FLOOD", ignoreCase = true) ->
