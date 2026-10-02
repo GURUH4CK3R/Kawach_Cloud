@@ -32,7 +32,7 @@
     <path d="M -22 15 A 14 14 0 0 1 -9 -4 A 20 20 0 0 1 18 -2 A 14 14 0 0 1 26 15 Z" fill="#F97316"/>
     
     <text x="0" y="180" text-anchor="middle" fill="#FFFFFF" font-family="-apple-system, Roboto, sans-serif" font-size="54" font-weight="800">Kawach Cloud</text>
-    <text x="0" y="230" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="600">Version 1.0.0-alpha01 • Build 1</text>
+    <text x="0" y="230" text-anchor="middle" fill="#38BDF8" font-family="-apple-system, Roboto, sans-serif" font-size="28" font-weight="600">Version 1.0.0 • Build 1</text>
     <text x="0" y="275" text-anchor="middle" fill="#94A3B8" font-family="-apple-system, Roboto, sans-serif" font-size="24">Your personal cloud. Powered by Telegram.</text>
   </g>
 

@@ -63,7 +63,7 @@
   </g>
 
   <!-- App Version & Status -->
-  <text x="540" y="2220" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="600">Version 1.0.0-alpha01 • Build 1</text>
+  <text x="540" y="2220" text-anchor="middle" fill="#64748B" font-family="-apple-system, Roboto, sans-serif" font-size="30" font-weight="600">Version 1.0.0 • Build 1</text>
   
   <!-- Subtle Home Indicator -->
   <rect x="390" y="2350" width="300" height="10" rx="5" fill="#475569"/>
