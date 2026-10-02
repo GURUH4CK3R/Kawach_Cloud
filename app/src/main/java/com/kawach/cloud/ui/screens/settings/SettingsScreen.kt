@@ -148,8 +148,8 @@ fun SettingsScreen(
                 }
             }
 
-            // Section: Telegram Account
-            SectionHeader(title = "TELEGRAM ACCOUNT")
+            // Section: Connected Telegram Account
+            SectionHeader(title = "CONNECTED TELEGRAM ACCOUNT")
 
             GlassCard(
                 modifier = Modifier
@@ -305,11 +305,11 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(bottom = 24.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(42.dp)
                                 .clip(CircleShape)
                                 .background(KawachPrimary.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
@@ -329,67 +329,83 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Version ${com.kawach.cloud.BuildConfig.VERSION_NAME} (Build ${com.kawach.cloud.BuildConfig.VERSION_CODE})",
+                                text = "Secure Telegram Backend Storage",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = KawachPrimary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
+                    // Group: App
+                    Text(
+                        text = "App",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = KawachPrimary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     AboutInfoRow(
-                        icon = Icons.Default.Shield,
-                        label = "Tagline",
-                        value = "Secure Telegram Backend Storage"
+                        icon = Icons.Default.Info,
+                        label = "Version",
+                        value = "1.0.0"
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AboutInfoRow(
+                        icon = Icons.Default.Cloud,
+                        label = "Storage",
+                        value = "Unlimited (Telegram Saved Messages)"
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AboutInfoRow(
+                        icon = Icons.Default.Code,
+                        label = "Architecture",
+                        value = "Client-Side TDLib / MTProto Storage"
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
+                    // Group: Developer
+                    Text(
+                        text = "Developer",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = KawachPrimary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     AboutInfoRow(
                         icon = Icons.Default.Person,
                         label = "Lead Developer",
-                        value = "Aravind(guru)"
+                        value = "Aravind (guru)"
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                    Spacer(modifier = Modifier.height(6.dp))
                     AboutInfoRow(
                         icon = Icons.AutoMirrored.Filled.Send,
                         label = "Telegram",
                         value = "@DaRkAcCeSs"
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                    Spacer(modifier = Modifier.height(6.dp))
                     AboutInfoRow(
                         icon = Icons.Default.Email,
                         label = "Email",
                         value = "darkwebaccess404@gmail.com"
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    AboutInfoRow(
-                        icon = Icons.Default.Cloud,
-                        label = "Storage",
-                        value = "Unlimited (Telegram Saved Messages)"
+                    // Group: Open Source
+                    Text(
+                        text = "Open Source",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = KawachPrimary
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    AboutInfoRow(
-                        icon = Icons.Default.Code,
-                        label = "Architecture",
-                        value = "Client-Side TDLib MTProto Storage"
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     AboutInfoRow(
                         icon = Icons.Default.Security,
                         label = "License",
-                        value = "Open Source (Apache 2.0)"
+                        value = "Apache 2.0"
                     )
                 }
             }

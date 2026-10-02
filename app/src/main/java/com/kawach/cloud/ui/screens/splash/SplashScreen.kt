@@ -184,7 +184,7 @@ fun SplashScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "Aravind(guru)",
+                    text = "Aravind (guru)",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
