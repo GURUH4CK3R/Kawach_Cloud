@@ -749,9 +749,15 @@ class TelegramClientManager(
             withTimeout(45000L) {
                 uploadDeferred.await()
             }
-        } catch (_: Exception) {
-            pendingUploadCompletions.remove(oldMessageId)
-            initialMessage
+        } catch (e: TimeoutCancellationException) {
+            pendingUploadCompletions.remove(oldMessageId, uploadDeferred)
+            return@withContext Result.failure(Exception("Telegram upload confirmation timed out. Please check your Telegram Saved Messages before retrying to avoid duplicate uploads."))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            pendingUploadCompletions.remove(oldMessageId, uploadDeferred)
+            throw e
+        } catch (e: Exception) {
+            pendingUploadCompletions.remove(oldMessageId, uploadDeferred)
+            return@withContext Result.failure(e)
         } finally {
             if (tgFileId > 0) progressListeners.remove(tgFileId)
         }
