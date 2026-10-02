@@ -8,7 +8,7 @@ The security and privacy of **Kawach Cloud** users are top priorities. As an ope
 
 | Version | Release Status | Supported |
 | :--- | :--- | :--- |
-| `1.0.0-alpha01` (Build 1) | Alpha | :white_check_mark: |
+| `1.0.0` (Build 1) | Release | :white_check_mark: |
 | `< 1.0.0` | Pre-alpha | :x: |
 
 ---
